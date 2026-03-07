@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import pytest
 from httpx import ASGITransport, AsyncClient
 

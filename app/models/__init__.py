@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 from app.models.base import Base, TenantBase
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 services:
   db:
     image: postgres:16

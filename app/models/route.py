@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import enum
 import uuid
 from datetime import date

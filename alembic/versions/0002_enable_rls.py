@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 """Enable Row Level Security on all tenant tables
 
 Revision ID: 0002

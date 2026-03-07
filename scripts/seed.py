@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 """Seed script for initial test data."""
 import asyncio
 import sys

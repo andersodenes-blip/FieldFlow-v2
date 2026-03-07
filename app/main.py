@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

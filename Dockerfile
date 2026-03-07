@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 FROM python:3.12-slim
 
 WORKDIR /app

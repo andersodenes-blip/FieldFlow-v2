@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt

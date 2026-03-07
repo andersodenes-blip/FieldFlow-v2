@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import uuid
 
 from pydantic import BaseModel, EmailStr

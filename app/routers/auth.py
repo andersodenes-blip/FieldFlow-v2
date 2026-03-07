@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status

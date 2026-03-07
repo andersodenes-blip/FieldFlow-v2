@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import logging
 
 from fastapi import APIRouter, Depends
