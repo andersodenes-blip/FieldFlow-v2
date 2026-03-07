@@ -49,7 +49,7 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     # Set tenant context for RLS (PostgreSQL only)
-    if not settings.is_sqlite:
+    if db.bind.dialect.name != "sqlite":
         await db.execute(text("SET LOCAL app.current_tenant = :tid"), {"tid": str(user.tenant_id)})
 
     return user

@@ -7,7 +7,8 @@
       "Bash(export:*)",
       "Bash(powershell.exe:*)",
       "Bash(pip install:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(python:*)"
     ]
   }
 }
