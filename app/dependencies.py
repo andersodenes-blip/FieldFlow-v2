@@ -12,6 +12,8 @@ from app.config import settings
 _engine_kwargs = {}
 if settings.is_sqlite:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    _engine_kwargs["connect_args"] = {"statement_cache_size": 0}
 
 engine = create_async_engine(settings.DATABASE_URL, echo=False, **_engine_kwargs)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
