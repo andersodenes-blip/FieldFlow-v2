@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(where docker:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(export:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(pip install:*)",
+      "Bash(git status:*)"
+    ]
+  }
+}
