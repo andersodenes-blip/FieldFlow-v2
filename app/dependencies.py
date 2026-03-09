@@ -83,17 +83,47 @@ async def get_current_user(
         except Exception:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-        # Look up user by email from Auth0 token
+        auth0_sub = auth0_claims.get("sub")
+        auth0_org_id = auth0_claims.get("org_id")
         email = auth0_claims.get("email")
         if not email:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing email claim")
+        if not auth0_org_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing org_id claim")
 
+        from app.repositories.organization_repository import OrganizationRepository
         from app.repositories.user_repository import UserRepository
 
+        org_repo = OrganizationRepository(db)
+        org = await org_repo.get_by_auth0_org_id(auth0_org_id)
+        if org is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Organization not found")
+
         repo = UserRepository(db)
-        user = await repo.get_by_email(email)
+        # Look up user by Auth0 sub, then fall back to email
+        user = None
+        if auth0_sub:
+            user = await repo.get_by_auth0_user_id(auth0_sub)
         if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+            user = await repo.get_by_email(email)
+
+        if user is None:
+            # Auto-create user on first Auth0 login
+            from app.models.user import User, UserRole
+
+            user = User(
+                tenant_id=org.tenant_id,
+                email=email,
+                auth0_user_id=auth0_sub,
+                role=UserRole.viewer,
+                is_active=True,
+            )
+            user = await repo.create(user)
+        elif user.auth0_user_id is None and auth0_sub:
+            # Link existing user to Auth0 identity
+            user.auth0_user_id = auth0_sub
+            await db.commit()
+            await db.refresh(user)
 
         # Set tenant context for RLS (PostgreSQL only)
         if db.bind.dialect.name != "sqlite":

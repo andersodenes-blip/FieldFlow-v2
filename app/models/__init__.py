@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
 from app.models.base import Base, TenantBase
+from app.models.organization import Organization
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.models.region import Region
@@ -16,7 +17,7 @@ from app.models.audit_event import AuditEvent
 
 __all__ = [
     "Base", "TenantBase",
-    "Tenant", "User", "UserRole",
+    "Organization", "Tenant", "User", "UserRole",
     "Region", "Technician", "Customer", "Location",
     "ServiceContract", "Job", "JobStatus",
     "ScheduledVisit", "VisitStatus",

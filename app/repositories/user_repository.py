@@ -18,3 +18,15 @@ class UserRepository:
     async def get_by_id(self, user_id: uuid.UUID) -> User | None:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
+
+    async def get_by_auth0_user_id(self, auth0_user_id: str) -> User | None:
+        result = await self.db.execute(
+            select(User).where(User.auth0_user_id == auth0_user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, user: User) -> User:
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

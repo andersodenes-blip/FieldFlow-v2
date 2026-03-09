@@ -21,11 +21,21 @@ class Auth0CallbackResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class OrganizationResponse(BaseModel):
+    id: uuid.UUID
+    auth0_org_id: str
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     email: str
     role: str
     is_active: bool
+    auth0_user_id: str | None = None
+    organization: OrganizationResponse | None = None
 
     model_config = {"from_attributes": True}

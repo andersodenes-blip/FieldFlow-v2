@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.auth import Auth0CallbackResponse, TokenRequest, TokenResponse, UserResponse
+from app.schemas.auth import Auth0CallbackResponse, OrganizationResponse, TokenRequest, TokenResponse, UserResponse
 from app.services.auth_service import authenticate_user, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -79,5 +79,32 @@ async def auth0_callback(code: Annotated[str, Query()]):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: Annotated[User, Depends(get_current_user)]):
-    return current_user
+async def get_me(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    org_response = None
+    if current_user.auth0_user_id:
+        from app.repositories.organization_repository import OrganizationRepository
+
+        org_repo = OrganizationRepository(db)
+        from sqlalchemy import select
+
+        from app.models.organization import Organization
+
+        result = await db.execute(
+            select(Organization).where(Organization.tenant_id == current_user.tenant_id)
+        )
+        org = result.scalar_one_or_none()
+        if org:
+            org_response = OrganizationResponse.model_validate(org)
+
+    return UserResponse(
+        id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        email=current_user.email,
+        role=current_user.role.value,
+        is_active=current_user.is_active,
+        auth0_user_id=current_user.auth0_user_id,
+        organization=org_response,
+    )
