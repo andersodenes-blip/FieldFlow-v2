@@ -72,7 +72,7 @@ async def get_current_user(
 
         # Set tenant context for RLS (PostgreSQL only)
         if db.bind.dialect.name != "sqlite":
-            await db.execute(text("SET LOCAL app.current_tenant = :tid"), {"tid": str(user.tenant_id)})
+            await db.execute(text(f"SET LOCAL app.current_tenant = '{user.tenant_id}'"))
 
         return user
 
@@ -127,7 +127,7 @@ async def get_current_user(
 
         # Set tenant context for RLS (PostgreSQL only)
         if db.bind.dialect.name != "sqlite":
-            await db.execute(text("SET LOCAL app.current_tenant = :tid"), {"tid": str(user.tenant_id)})
+            await db.execute(text(f"SET LOCAL app.current_tenant = '{user.tenant_id}'"))
 
         return user
 

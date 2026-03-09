@@ -51,7 +51,7 @@ async def seed():
         await db.flush()
 
         # Set RLS context so tenant-scoped inserts pass RLS policies
-        await db.execute(text(f"SET app.current_tenant_id = '{tenant_id}'"))
+        await db.execute(text(f"SET app.current_tenant = '{tenant_id}'"))
 
         # Create admin user
         user = User(
