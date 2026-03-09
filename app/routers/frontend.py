@@ -52,41 +52,78 @@ async def logout():
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+async def dashboard(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    region_id: str | None = Query(None),
+):
     user = await _get_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/app/login")
 
-    # Fetch stats
-    regions_count = (await db.execute(
-        select(func.count(Region.id)).where(Region.tenant_id == user.tenant_id)
-    )).scalar() or 0
+    tid = user.tenant_id
 
-    technicians_count = (await db.execute(
-        select(func.count(Technician.id)).where(Technician.tenant_id == user.tenant_id)
-    )).scalar() or 0
+    # Load all regions
+    result = await db.execute(
+        select(Region).where(Region.tenant_id == tid).order_by(Region.name)
+    )
+    regions = list(result.scalars().all())
 
-    customers_count = (await db.execute(
-        select(func.count(Customer.id)).where(Customer.tenant_id == user.tenant_id)
-    )).scalar() or 0
+    # Determine selected region (default to first)
+    selected_region = None
+    if regions:
+        if region_id:
+            selected_region = next((r for r in regions if str(r.id) == region_id), regions[0])
+        else:
+            selected_region = regions[0]
 
-    active_jobs_count = (await db.execute(
-        select(func.count(Job.id)).where(
-            Job.tenant_id == user.tenant_id,
-            Job.status.in_([JobStatus.unscheduled, JobStatus.scheduled, JobStatus.in_progress]),
-        )
-    )).scalar() or 0
+    # Job counts by status (tenant-wide)
+    status_counts = {}
+    for s in [JobStatus.unscheduled, JobStatus.scheduled, JobStatus.in_progress, JobStatus.completed, JobStatus.cancelled]:
+        count = (await db.execute(
+            select(func.count(Job.id)).where(Job.tenant_id == tid, Job.status == s)
+        )).scalar() or 0
+        status_counts[s.value] = count
+
+    total_jobs = sum(status_counts.values())
+    completed = status_counts["completed"]
+    pct = round(completed / total_jobs * 100) if total_jobs else 0
+
+    if pct >= 70:
+        pct_label = "God"
+    elif pct >= 40:
+        pct_label = "OK"
+    else:
+        pct_label = "På etterskudd"
+
+    # Technicians filtered by selected region
+    tech_query = (
+        select(Technician, Region.name.label("region_name"))
+        .join(Region, Technician.region_id == Region.id)
+        .where(Technician.tenant_id == tid, Technician.is_active == True)
+    )
+    if selected_region:
+        tech_query = tech_query.where(Technician.region_id == selected_region.id)
+    tech_query = tech_query.order_by(Technician.name)
+
+    result = await db.execute(tech_query)
+    technicians = [{"tech": row.Technician, "region_name": row.region_name} for row in result.all()]
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
         "active_page": "dashboard",
+        "regions": regions,
+        "selected_region": selected_region,
         "stats": {
-            "regions": regions_count,
-            "technicians": technicians_count,
-            "customers": customers_count,
-            "active_jobs": active_jobs_count,
+            "total": total_jobs,
+            "completed": completed,
+            "scheduled": status_counts["scheduled"] + status_counts["in_progress"],
+            "unscheduled": status_counts["unscheduled"],
         },
+        "pct": pct,
+        "pct_label": pct_label,
+        "technicians": technicians,
     })
 
 
