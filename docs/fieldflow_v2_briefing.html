@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FieldFlow v2 — Arkitektur-briefing</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f4f6fb; color: #1a1a2e; }
+
+  .cover {
+    background: linear-gradient(135deg, #3b3fa8 0%, #5b5fc7 60%, #7c7fd4 100%);
+    color: white;
+    padding: 60px 80px;
+    min-height: 180px;
+  }
+  .cover h1 { font-size: 2.6rem; font-weight: 700; letter-spacing: -1px; }
+  .cover p { font-size: 1.1rem; opacity: 0.85; margin-top: 10px; }
+  .cover .meta { margin-top: 20px; font-size: 0.9rem; opacity: 0.7; }
+
+  .content { max-width: 960px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  h2 { font-size: 1.5rem; color: #3b3fa8; margin: 40px 0 16px; border-left: 4px solid #3b3fa8; padding-left: 12px; }
+  h3 { font-size: 1.1rem; color: #333; margin: 24px 0 10px; }
+  p { line-height: 1.7; color: #444; margin-bottom: 12px; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-top: 3px solid #3b3fa8;
+  }
+  .stat-card .number { font-size: 2rem; font-weight: 700; color: #3b3fa8; }
+  .stat-card .label { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+  /* Architecture diagram */
+  .diagram {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+
+  .arch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 700px;
+  }
+
+  .arch-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .arch-box {
+    border-radius: 10px;
+    padding: 12px 18px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 120px;
+  }
+
+  .box-browser { background: #e8f4fd; border: 2px solid #4a9edd; color: #1a5f8a; }
+  .box-railway { background: #f0f7ee; border: 2px solid #5aac44; color: #2d6a20; }
+  .box-fastapi { background: #eee8ff; border: 2px solid #7c5cbf; color: #4a2d8a; }
+  .box-layer { background: #fff8e8; border: 2px solid #f0b429; color: #7a5800; }
+  .box-db { background: #ffe8e8; border: 2px solid #e05c5c; color: #8a1a1a; }
+  .box-auth { background: #e8fff4; border: 2px solid #34c97e; color: #1a6640; }
+  .box-github { background: #f0f0f0; border: 2px solid #888; color: #333; }
+  .box-wsl { background: #fff0e8; border: 2px solid #e8823d; color: #7a3a00; }
+
+  .arch-arrow {
+    font-size: 1.2rem;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+  }
+
+  .arch-label {
+    font-size: 0.7rem;
+    color: #999;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  .arch-section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  /* Layer stack */
+  .layer-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin: 24px 0;
+  }
+
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+
+  .layer-icon { font-size: 1.4rem; width: 32px; text-align: center; }
+  .layer-name { font-weight: 700; min-width: 140px; }
+  .layer-desc { color: #666; font-size: 0.85rem; }
+  .layer-tech { margin-left: auto; font-size: 0.75rem; color: #999; font-style: italic; }
+
+  .l1 { background: #eee8ff; }
+  .l2 { background: #e8f4fd; }
+  .l3 { background: #fff8e8; }
+  .l4 { background: #f0f7ee; }
+  .l5 { background: #ffe8e8; }
+
+  /* Test table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; }
+  th { background: #3b3fa8; color: white; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) { background: #f9f9ff; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .tag-done { background: #d4f8e8; color: #1a6640; }
+  .tag-human { background: #fff3cd; color: #7a5800; }
+
+  /* US list */
+  .us-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .us-card {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .us-id { font-size: 0.75rem; font-weight: 700; color: #3b3fa8; min-width: 50px; }
+  .us-title { font-size: 0.85rem; color: #333; }
+  .us-check { color: #34c97e; font-size: 1rem; }
+
+  .flow-diagram {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin: 24px 0;
+  }
+
+  .flow-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .flow-step {
+    background: #3b3fa8;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    text-align: center;
+    min-width: 100px;
+  }
+
+  .flow-arrow { color: #aaa; font-size: 1.4rem; padding: 0 6px; }
+
+  .tech-stack {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .tech-item {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+  .tech-category { font-size: 0.7rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  .tech-name { font-size: 1rem; font-weight: 700; color: #3b3fa8; margin: 4px 0; }
+  .tech-desc { font-size: 0.8rem; color: #666; }
+
+  .note {
+    background: #fff8e8;
+    border-left: 4px solid #f0b429;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+    color: #7a5800;
+    margin: 16px 0;
+  }
+
+  footer {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>⚡ FieldFlow v2</h1>
+  <p>Arkitektur-briefing — Alt du trenger å vite om hva vi har bygget</p>
+  <div class="meta">Anders Ødenes · Mars 2026 · Konfidensielt</div>
+</div>
+
+<div class="content">
+
+  <!-- Summary stats -->
+  <h2>📊 Hva er bygget</h2>
+  <div class="summary-grid">
+    <div class="stat-card">
+      <div class="number">114</div>
+      <div class="label">Automatiserte tester</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">18</div>
+      <div class="label">User stories fullført</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">3</div>
+      <div class="label">Sprinter gjennomført</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">Live</div>
+      <div class="label">Railway + Docker</div>
+    </div>
+  </div>
+
+  <!-- Architecture diagram -->
+  <h2>🏗️ Arkitekturdiagram</h2>
+  <div class="diagram">
+    <div class="arch-container">
+
+      <div class="arch-section-label">Bruker / Frontend</div>
+      <div class="arch-row">
+        <div class="arch-box box-browser">🌐 Nettleser<br><small>Tailwind + HTMX + Alpine.js</small></div>
+        <div class="arch-arrow">↔</div>
+        <div class="arch-box box-auth">🔐 Auth0<br><small>Organizations (B2B)</small></div>
+      </div>
+
+      <div class="arch-row"><div class="arch-arrow" style="font-size:1.8rem">↕</div></div>
+
+      <div class="arch-section-label">Backend (Railway — cloud)</div>
+      <div class="arch-row">
+        <div class="arch-box box-railway">🚂 Railway<br><small>Auto-deploy fra GitHub</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-fastapi">⚡ FastAPI<br><small>Python 3.12 + Uvicorn</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-layer">📋 Routers<br><small>16 API-endepunkter</small></div>
+      </div>
+
+      <div class="arch-row"><div class="arch-arrow" style="font-size:1.8rem">↕</div></div>
+
+      <div class="arch-section-label">Forretningslogikk</div>
+      <div class="arch-row">
+        <div class="arch-box box-layer">🔒 Auth/RBAC<br><small>JWT + roller</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-layer">🏢 Services<br><small>Forretningsregler</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-layer">📦 Repositories<br><small>Databasetilgang</small></div>
+      </div>
+
+      <div class="arch-row"><div class="arch-arrow" style="font-size:1.8rem">↕</div></div>
+
+      <div class="arch-section-label">Database</div>
+      <div class="arch-row">
+        <div class="arch-box box-db">🐘 PostgreSQL<br><small>Supabase (cloud)</small></div>
+        <div class="arch-arrow">↔</div>
+        <div class="arch-box box-db">🔑 Row Level Security<br><small>Multi-tenant isolasjon</small></div>
+        <div class="arch-arrow">↔</div>
+        <div class="arch-box box-db">🔄 Alembic<br><small>Databasemigrasjoner</small></div>
+      </div>
+
+      <div class="arch-row"><div class="arch-arrow" style="font-size:1.8rem">↕</div></div>
+
+      <div class="arch-section-label">Lokal utvikling</div>
+      <div class="arch-row">
+        <div class="arch-box box-wsl">🐧 WSL2 + Ubuntu<br><small>Docker-motor</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-wsl">🐳 Docker Compose<br><small>app + db + pgadmin</small></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-box box-github">📁 GitHub<br><small>andersodenes-blip/FieldFlow-v2</small></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Multi-tenancy explained -->
+  <h2>🏢 Multi-tenancy — Slik fungerer det</h2>
+  <p>FieldFlow v2 er bygget for å serve <strong>flere kunder samtidig</strong> fra én og samme database. Dette kalles multi-tenancy, og er kjernen i en SaaS-plattform.</p>
+
+  <div class="flow-diagram">
+    <strong>Innloggingsflyt med Auth0 Organizations:</strong>
+    <div class="flow-steps">
+      <div class="flow-step">Bruker logger inn</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Auth0 utsteder JWT-token med org_id</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">FastAPI mapper org_id → tenant_id</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">PostgreSQL RLS filtrerer data per tenant</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Bruker ser kun sine data</div>
+    </div>
+  </div>
+
+  <div class="note">
+    💡 <strong>Enkelt forklart:</strong> Hedengren og en annen installatørbedrift kan begge bruke FieldFlow v2 samtidig. De deler samme database, men PostgreSQL sine Row Level Security-regler sørger for at ingen kan se hverandres data — akkurat som at to leiligheter i samme bygård er låst.
+  </div>
+
+  <!-- Tech stack -->
+  <h2>🛠️ Teknologi-stakken</h2>
+  <div class="tech-stack">
+    <div class="tech-item">
+      <div class="tech-category">Backend</div>
+      <div class="tech-name">FastAPI</div>
+      <div class="tech-desc">Moderne Python web-rammeverk. Async, raskt, auto-genererer API-dokumentasjon.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Database ORM</div>
+      <div class="tech-name">SQLAlchemy 2.0</div>
+      <div class="tech-desc">Kobler Python-kode til PostgreSQL. Async-støtte med asyncpg.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Database</div>
+      <div class="tech-name">PostgreSQL</div>
+      <div class="tech-desc">Supabase i cloud, lokal Docker-instans for utvikling.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Migrasjoner</div>
+      <div class="tech-name">Alembic</div>
+      <div class="tech-desc">Versjonshåndtering av databaseskjema. Som Git, men for tabeller.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Autentisering</div>
+      <div class="tech-name">Auth0 Organizations</div>
+      <div class="tech-desc">B2B-innlogging. Hver kunde er én Organization med egne brukere.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Frontend</div>
+      <div class="tech-name">HTMX + Tailwind</div>
+      <div class="tech-desc">Dynamiske sider uten tung JavaScript. Alpine.js for modaler og interaktivitet.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Deploy</div>
+      <div class="tech-name">Railway</div>
+      <div class="tech-desc">Automatisk deploy ved push til GitHub main-branch.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Lokalt</div>
+      <div class="tech-name">Docker + WSL2</div>
+      <div class="tech-desc">Kjører samme miljø lokalt som i cloud. Ubuntu via WSL2 på Windows.</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-category">Testing</div>
+      <div class="tech-name">pytest + asyncio</div>
+      <div class="tech-desc">114 automatiserte tester. Kjøres i minne med SQLite, ingen ekstern DB.</div>
+    </div>
+  </div>
+
+  <!-- Layer explanation -->
+  <h2>📐 Kodestruktur — lagdelt arkitektur</h2>
+  <p>Koden er organisert i lag, der hvert lag har ett ansvar. Dette gjør det enkelt å endre én ting uten å ødelegge noe annet.</p>
+
+  <div class="layer-stack">
+    <div class="layer l1">
+      <div class="layer-icon">🌐</div>
+      <div class="layer-name">Routers</div>
+      <div class="layer-desc">Mottar HTTP-forespørsler (GET, POST, PUT, DELETE). Validerer input med Pydantic-skjema.</div>
+      <div class="layer-tech">app/routers/</div>
+    </div>
+    <div class="layer l2">
+      <div class="layer-icon">⚙️</div>
+      <div class="layer-name">Services</div>
+      <div class="layer-desc">Forretningslogikk. F.eks. "kan ikke slette en region som har teknikere".</div>
+      <div class="layer-tech">app/services/</div>
+    </div>
+    <div class="layer l3">
+      <div class="layer-icon">📦</div>
+      <div class="layer-name">Repositories</div>
+      <div class="layer-desc">All kommunikasjon med databasen. Søk, paginering, filtrering.</div>
+      <div class="layer-tech">app/repositories/</div>
+    </div>
+    <div class="layer l4">
+      <div class="layer-icon">🗂️</div>
+      <div class="layer-name">Models</div>
+      <div class="layer-desc">Databasetabellene som Python-klasser. Tenant, User, Region, Technician, Job osv.</div>
+      <div class="layer-tech">app/models/</div>
+    </div>
+    <div class="layer l5">
+      <div class="layer-icon">🔒</div>
+      <div class="layer-name">Dependencies</div>
+      <div class="layer-desc">Autentisering og RBAC. Kjøres automatisk på alle beskyttede endepunkter.</div>
+      <div class="layer-tech">app/dependencies.py</div>
+    </div>
+  </div>
+
+  <!-- User stories -->
+  <h2>✅ Alle user stories fullført</h2>
+
+  <h3>Fase 1 — Infrastruktur og sikkerhet</h3>
+  <div class="us-grid">
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-001</div><div class="us-title">Supabase passordrotasjon</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-002</div><div class="us-title">Verifiser databasetilkobling</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-003</div><div class="us-title">Docker + WSL2 lokalt miljø</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-004</div><div class="us-title">Auth0 grunnoppsett</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-005</div><div class="us-title">Bruker/org-mapping</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-006</div><div class="us-title">Role-Based Access Control (RBAC)</div></div>
+  </div>
+
+  <h3>Fase 2 — Sprint 1: Kjerneressurser</h3>
+  <div class="us-grid">
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-007</div><div class="us-title">CRUD for regioner</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-008</div><div class="us-title">CRUD for teknikere</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-009</div><div class="us-title">CRUD for kunder</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-010</div><div class="us-title">CRUD for lokasjoner</div></div>
+  </div>
+
+  <h3>Fase 2 — Sprint 2: Forretningslogikk</h3>
+  <div class="us-grid">
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-011</div><div class="us-title">Serviceavtaler</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-012</div><div class="us-title">Jobber og statusflyt</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-013</div><div class="us-title">Automatisk jobbgenerering fra avtaler</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-014</div><div class="us-title">Rutetildeling</div></div>
+  </div>
+
+  <h3>Fase 2 — Sprint 3: Infrastruktur + Frontend</h3>
+  <div class="us-grid">
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-014</div><div class="us-title">Paginering og filtrering</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-015</div><div class="us-title">CSV-import av kunder/lokasjoner</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-016</div><div class="us-title">Audit-logging</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-017</div><div class="us-title">Frontend — layout og navigasjon</div></div>
+    <div class="us-card"><div class="us-check">✅</div><div class="us-id">US-018</div><div class="us-title">Frontend — kundeliste og skjema</div></div>
+  </div>
+
+  <!-- Test overview -->
+  <h2>🧪 Testoversikt</h2>
+  <table>
+    <tr><th>Testfil</th><th>Antall tester</th><th>Hva testes</th></tr>
+    <tr><td>test_auth.py</td><td>4</td><td>Innlogging, token-validering</td></tr>
+    <tr><td>test_auth0.py</td><td>10</td><td>Auth0 innloggingsflyt, JWT med org_id</td></tr>
+    <tr><td>test_rbac.py</td><td>12</td><td>Roller, tilgangskontroll, cross-tenant</td></tr>
+    <tr><td>test_user_org_mapping.py</td><td>13</td><td>Auth0 bruker-mapping, auto-opprett</td></tr>
+    <tr><td>test_tenant_isolation.py</td><td>4</td><td>Tenant A kan ikke se Tenant B sine data</td></tr>
+    <tr><td>test_regions.py</td><td>8</td><td>CRUD regioner, slett-beskyttelse</td></tr>
+    <tr><td>test_technicians.py</td><td>6</td><td>CRUD teknikere, soft delete</td></tr>
+    <tr><td>test_customers.py</td><td>8</td><td>CRUD kunder, søk, paginering</td></tr>
+    <tr><td>test_locations.py</td><td>7</td><td>CRUD lokasjoner, kunde-validering</td></tr>
+    <tr><td>test_service_contracts.py</td><td>8</td><td>Serviceavtaler, soft delete</td></tr>
+    <tr><td>test_jobs.py</td><td>10</td><td>Jobber, statustransisjoner</td></tr>
+    <tr><td>test_job_generation.py</td><td>5</td><td>Automatisk jobbgenerering fra avtaler</td></tr>
+    <tr><td>test_pagination.py</td><td>7</td><td>Paginering, sortering, alle endepunkter</td></tr>
+    <tr><td>test_audit_events.py</td><td>5</td><td>Audit-logging på create/update/delete</td></tr>
+    <tr><td>test_import.py</td><td>5</td><td>CSV-import, validering, duplikater</td></tr>
+    <tr><td>test_health.py</td><td>2</td><td>Health-sjekk og DB-tilkobling</td></tr>
+    <tr><td><strong>Totalt</strong></td><td><strong>114</strong></td><td><strong>0 feil</strong></td></tr>
+  </table>
+
+  <!-- Next steps -->
+  <h2>🚀 Neste steg</h2>
+  <table>
+    <tr><th>Prioritet</th><th>Oppgave</th><th>Status</th></tr>
+    <tr><td>1</td><td>Ruteoptimalisering — koble jobber til teknikere geografisk</td><td><span class="tag tag-human">Ikke startet</span></td></tr>
+    <tr><td>2</td><td>Fullføre frontend — Regioner, Teknikere, Jobber-sider</td><td><span class="tag tag-human">Ikke startet</span></td></tr>
+    <tr><td>3</td><td>Auth0 Organizations aktivering i dashboard</td><td><span class="tag tag-human">Manuell</span></td></tr>
+    <tr><td>4</td><td>Første betalende kunde — installatørkonsellasjon</td><td><span class="tag tag-human">Ikke startet</span></td></tr>
+    <tr><td>5</td><td>Presentasjon til Hedengren-ledelsen</td><td><span class="tag tag-human">Ikke startet</span></td></tr>
+  </table>
+
+</div>
+
+<footer>
+  FieldFlow v2 · Anders Ødenes · 2026 · Konfidensielt
+</footer>
+
+</body>
+</html>
