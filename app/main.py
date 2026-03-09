@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import admin, auth, customers, health, locations, regions, technicians
+from app.routers import admin, auth, customers, health, jobs, locations, regions, service_contracts, technicians
 
 
 @asynccontextmanager
@@ -26,3 +26,5 @@ app.include_router(regions.router)
 app.include_router(customers.router)
 app.include_router(technicians.router)
 app.include_router(locations.router)
+app.include_router(service_contracts.router)
+app.include_router(jobs.router)
