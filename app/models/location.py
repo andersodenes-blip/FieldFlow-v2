@@ -17,3 +17,4 @@ class Location(TenantBase):
     postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

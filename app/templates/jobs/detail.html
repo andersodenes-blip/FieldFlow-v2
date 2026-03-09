@@ -31,12 +31,16 @@
         <div class="border-t border-gray-200 px-6 py-5">
             <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                 <div>
-                    <dt class="text-sm font-medium text-gray-500">Beskrivelse</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ job.description or 'Ingen beskrivelse' }}</dd>
+                    <dt class="text-sm font-medium text-gray-500">Adresse</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.service_contract.location.address if job.service_contract and job.service_contract.location else '-' }}</dd>
                 </div>
                 <div>
-                    <dt class="text-sm font-medium text-gray-500">Serviceavtale</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ job.service_contract_id }}</dd>
+                    <dt class="text-sm font-medium text-gray-500">Type</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.service_contract.service_type if job.service_contract else '-' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Beskrivelse</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.description or 'Ingen beskrivelse' }}</dd>
                 </div>
                 <div>
                     <dt class="text-sm font-medium text-gray-500">Sist oppdatert</dt>

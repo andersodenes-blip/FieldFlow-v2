@@ -3,8 +3,11 @@ import uuid
 
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.job import Job, JobStatus
+from app.models.location import Location
+from app.models.service_contract import ServiceContract
 
 
 class JobRepository:
@@ -27,16 +30,15 @@ class JobRepository:
         sort_by: str = "created_at",
         sort_order: str = "asc",
     ) -> tuple[list[Job], int]:
-        query = select(Job).where(Job.tenant_id == tenant_id)
+        query = select(Job).where(Job.tenant_id == tenant_id).options(
+            selectinload(Job.service_contract).selectinload(ServiceContract.location)
+        )
         count_query = select(func.count(Job.id)).where(Job.tenant_id == tenant_id)
 
         if status:
             query = query.where(Job.status == JobStatus(status))
             count_query = count_query.where(Job.status == JobStatus(status))
         if customer_id:
-            from app.models.service_contract import ServiceContract
-            from app.models.location import Location
-
             query = (
                 query.join(ServiceContract, Job.service_contract_id == ServiceContract.id)
                 .join(Location, ServiceContract.location_id == Location.id)
@@ -59,7 +61,11 @@ class JobRepository:
 
     async def get_by_id(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> Job | None:
         result = await self.db.execute(
-            select(Job).where(Job.id == job_id, Job.tenant_id == tenant_id)
+            select(Job)
+            .where(Job.id == job_id, Job.tenant_id == tenant_id)
+            .options(
+                selectinload(Job.service_contract).selectinload(ServiceContract.location)
+            )
         )
         return result.scalar_one_or_none()
 

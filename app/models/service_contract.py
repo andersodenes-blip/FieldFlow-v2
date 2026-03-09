@@ -3,7 +3,7 @@ import uuid
 from datetime import date
 
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import TenantBase
 
@@ -18,3 +18,5 @@ class ServiceContract(TenantBase):
     next_due_date: Mapped[date] = mapped_column(Date, nullable=False)
     sla_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    location = relationship("Location", lazy="noload")
