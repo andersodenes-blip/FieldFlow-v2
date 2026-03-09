@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import admin, auth, health
+from app.routers import admin, auth, customers, health, locations, regions, technicians
 
 
 @asynccontextmanager
@@ -22,3 +22,7 @@ app = FastAPI(title="FieldFlow v2", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(regions.router)
+app.include_router(customers.router)
+app.include_router(technicians.router)
+app.include_router(locations.router)
