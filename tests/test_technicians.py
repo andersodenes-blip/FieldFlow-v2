@@ -61,7 +61,7 @@ async def test_list_technicians(client, db, user_a, tenant_a):
     token = create_access_token(str(user_a.id), str(tenant_a.id), user_a.role.value)
     resp = await client.get("/technicians", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ async def test_filter_technicians_by_region(client, db, user_a, tenant_a):
         f"/technicians?region_id={r1.id}", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 200
-    results = resp.json()
+    results = resp.json()["items"]
     assert len(results) == 1
     assert results[0]["name"] == "T1"
 
@@ -126,4 +126,4 @@ async def test_cross_tenant_isolation_technicians(client, db, user_a, user_b, te
     assert resp.status_code == 404
 
     resp = await client.get("/technicians", headers={"Authorization": f"Bearer {token_b}"})
-    assert len(resp.json()) == 0
+    assert len(resp.json()["items"]) == 0

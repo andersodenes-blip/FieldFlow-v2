@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="no" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FieldFlow{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
+</head>
+<body class="h-full" x-data="{ sidebarOpen: false }">
+    <div class="min-h-full">
+        <!-- Mobile sidebar backdrop -->
+        <div x-show="sidebarOpen" x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+             @click="sidebarOpen = false"></div>
+
+        <!-- Sidebar -->
+        <div class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+            <div class="flex flex-col flex-grow bg-indigo-700 pt-5 pb-4 overflow-y-auto">
+                <div class="flex items-center flex-shrink-0 px-4">
+                    <span class="text-white text-xl font-bold">FieldFlow</span>
+                </div>
+                <nav class="mt-8 flex-1 px-2 space-y-1">
+                    <a href="/app/dashboard" class="{% if active_page == 'dashboard' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        Dashboard
+                    </a>
+                    <a href="/app/regions" class="{% if active_page == 'regions' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        Regioner
+                    </a>
+                    <a href="/app/technicians" class="{% if active_page == 'technicians' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        Teknikere
+                    </a>
+                    <a href="/app/customers" class="{% if active_page == 'customers' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        Kunder
+                    </a>
+                    <a href="/app/jobs" class="{% if active_page == 'jobs' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        Jobber
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Mobile sidebar -->
+        <div x-show="sidebarOpen" class="fixed inset-y-0 left-0 z-50 w-64 bg-indigo-700 lg:hidden"
+             x-transition:enter="transition ease-in-out duration-300 transform"
+             x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in-out duration-300 transform"
+             x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full">
+            <div class="flex items-center justify-between px-4 pt-5">
+                <span class="text-white text-xl font-bold">FieldFlow</span>
+                <button @click="sidebarOpen = false" class="text-indigo-200 hover:text-white">
+                    <span class="sr-only">Lukk meny</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <nav class="mt-8 px-2 space-y-1">
+                <a href="/app/dashboard" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Dashboard</a>
+                <a href="/app/regions" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Regioner</a>
+                <a href="/app/technicians" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Teknikere</a>
+                <a href="/app/customers" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Kunder</a>
+                <a href="/app/jobs" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Jobber</a>
+            </nav>
+        </div>
+
+        <!-- Main content -->
+        <div class="lg:pl-64 flex flex-col flex-1">
+            <!-- Top bar -->
+            <div class="sticky top-0 z-10 bg-white shadow">
+                <div class="flex items-center justify-between px-4 py-3">
+                    <button @click="sidebarOpen = true" class="lg:hidden text-gray-500 hover:text-gray-700">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                    <div class="flex-1"></div>
+                    {% if user %}
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-700">{{ user.email }}</span>
+                        <span class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800">{{ user.role }}</span>
+                        <a href="/app/logout" class="text-sm text-gray-500 hover:text-gray-700">Logg ut</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Page content -->
+            <main class="flex-1 p-6">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+</body>
+</html>

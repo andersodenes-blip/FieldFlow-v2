@@ -31,7 +31,7 @@ async def test_list_customers(client, db, user_a, tenant_a):
     token = create_access_token(str(user_a.id), str(tenant_a.id), user_a.role.value)
     resp = await client.get("/customers", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -45,7 +45,7 @@ async def test_search_customers(client, db, user_a, tenant_a):
         "/customers?search=Acme", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 200
-    results = resp.json()
+    results = resp.json()["items"]
     assert len(results) == 1
     assert results[0]["name"] == "Acme AS"
 
@@ -61,7 +61,7 @@ async def test_pagination_customers(client, db, user_a, tenant_a):
         "/customers?page=1&page_size=2", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -120,4 +120,4 @@ async def test_cross_tenant_isolation_customers(client, db, user_a, user_b, tena
     assert resp.status_code == 404
 
     resp = await client.get("/customers", headers={"Authorization": f"Bearer {token_b}"})
-    assert len(resp.json()) == 0
+    assert len(resp.json()["items"]) == 0

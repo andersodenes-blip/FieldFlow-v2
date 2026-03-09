@@ -89,7 +89,7 @@ async def test_list_jobs(client, db, user_a, tenant_a):
     token = create_access_token(str(user_a.id), str(tenant_a.id), user_a.role.value)
     resp = await client.get("/jobs", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -121,8 +121,8 @@ async def test_list_jobs_filter_by_status(client, db, user_a, tenant_a):
         "/jobs?status=unscheduled", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 1
-    assert resp.json()[0]["status"] == "unscheduled"
+    assert len(resp.json()["items"]) == 1
+    assert resp.json()["items"][0]["status"] == "unscheduled"
 
 
 @pytest.mark.asyncio
@@ -377,4 +377,4 @@ async def test_cross_tenant_isolation_jobs(client, db, user_a, user_b, tenant_a,
     # Tenant B's list is empty
     resp = await client.get("/jobs", headers={"Authorization": f"Bearer {token_b}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 0
+    assert len(resp.json()["items"]) == 0

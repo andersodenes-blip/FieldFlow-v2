@@ -8,12 +8,15 @@ from app.models.technician import Technician
 from app.repositories.region_repository import RegionRepository
 from app.repositories.technician_repository import TechnicianRepository
 from app.schemas.technician import TechnicianCreate, TechnicianUpdate
+from app.services.audit_service import AuditService
 
 
 class TechnicianService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, user_id: uuid.UUID | None = None):
         self.repo = TechnicianRepository(db)
         self.region_repo = RegionRepository(db)
+        self.audit = AuditService(db)
+        self.user_id = user_id
 
     async def create_technician(self, tenant_id: uuid.UUID, data: TechnicianCreate) -> Technician:
         # Validate region belongs to same tenant
@@ -30,12 +33,24 @@ class TechnicianService:
             email=data.email,
             phone=data.phone,
         )
-        return await self.repo.create(technician)
+        technician = await self.repo.create(technician)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "create", "technician", str(technician.id), data.model_dump(mode="json"))
+        return technician
 
     async def list_technicians(
-        self, tenant_id: uuid.UUID, region_id: uuid.UUID | None = None
-    ) -> list[Technician]:
-        return await self.repo.get_all(tenant_id, region_id=region_id)
+        self,
+        tenant_id: uuid.UUID,
+        region_id: uuid.UUID | None = None,
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "asc",
+    ) -> tuple[list[Technician], int]:
+        return await self.repo.get_all(
+            tenant_id, region_id=region_id, page=page, page_size=page_size,
+            sort_by=sort_by, sort_order=sort_order,
+        )
 
     async def get_technician(self, technician_id: uuid.UUID, tenant_id: uuid.UUID) -> Technician:
         technician = await self.repo.get_by_id(technician_id, tenant_id)
@@ -57,8 +72,13 @@ class TechnicianService:
                 )
         for field, value in update_data.items():
             setattr(technician, field, value)
-        return await self.repo.update(technician)
+        technician = await self.repo.update(technician)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "update", "technician", str(technician.id), data.model_dump(exclude_unset=True, mode="json"))
+        return technician
 
     async def delete_technician(self, technician_id: uuid.UUID, tenant_id: uuid.UUID) -> Technician:
         technician = await self.get_technician(technician_id, tenant_id)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "delete", "technician", str(technician.id))
         return await self.repo.soft_delete(technician)

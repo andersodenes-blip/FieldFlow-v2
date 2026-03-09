@@ -32,7 +32,7 @@ async def test_list_regions(client, db, user_a, tenant_a):
     token = create_access_token(str(user_a.id), str(tenant_a.id), user_a.role.value)
     resp = await client.get("/regions", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_cross_tenant_isolation_regions(client, db, user_a, user_b, tenant
     # Tenant B's list doesn't include Tenant A's regions
     resp = await client.get("/regions", headers={"Authorization": f"Bearer {token_b}"})
     assert resp.status_code == 200
-    assert len(resp.json()) == 0
+    assert len(resp.json()["items"]) == 0
 
 
 @pytest.mark.asyncio

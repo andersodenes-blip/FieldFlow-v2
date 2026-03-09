@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job, JobStatus
@@ -22,11 +22,17 @@ class JobRepository:
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
-    ) -> list[Job]:
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "asc",
+    ) -> tuple[list[Job], int]:
         query = select(Job).where(Job.tenant_id == tenant_id)
+        count_query = select(func.count(Job.id)).where(Job.tenant_id == tenant_id)
 
         if status:
             query = query.where(Job.status == JobStatus(status))
+            count_query = count_query.where(Job.status == JobStatus(status))
         if customer_id:
             from app.models.service_contract import ServiceContract
             from app.models.location import Location
@@ -36,9 +42,20 @@ class JobRepository:
                 .join(Location, ServiceContract.location_id == Location.id)
                 .where(Location.customer_id == customer_id)
             )
+            count_query = (
+                count_query.join(ServiceContract, Job.service_contract_id == ServiceContract.id)
+                .join(Location, ServiceContract.location_id == Location.id)
+                .where(Location.customer_id == customer_id)
+            )
 
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        order_col = getattr(Job, sort_by, Job.created_at)
+        query = query.order_by(desc(order_col) if sort_order == "desc" else asc(order_col))
+        query = query.offset((page - 1) * page_size).limit(page_size)
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return list(result.scalars().all()), total
 
     async def get_by_id(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> Job | None:
         result = await self.db.execute(

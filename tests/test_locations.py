@@ -59,7 +59,7 @@ async def test_list_locations_for_customer(client, db, user_a, tenant_a):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 @pytest.mark.asyncio

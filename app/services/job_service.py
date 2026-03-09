@@ -8,6 +8,7 @@ from app.models.job import Job, JobStatus
 from app.repositories.job_repository import JobRepository
 from app.repositories.service_contract_repository import ServiceContractRepository
 from app.schemas.job import JobCreate, JobUpdate, JobStatusUpdate
+from app.services.audit_service import AuditService
 
 
 # Valid status transitions
@@ -21,9 +22,11 @@ VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
 
 
 class JobService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, user_id: uuid.UUID | None = None):
         self.repo = JobRepository(db)
         self.contract_repo = ServiceContractRepository(db)
+        self.audit = AuditService(db)
+        self.user_id = user_id
 
     async def create_job(self, tenant_id: uuid.UUID, data: JobCreate) -> Job:
         # Validate contract belongs to tenant
@@ -40,15 +43,25 @@ class JobService:
             description=data.description,
             status=JobStatus.unscheduled,
         )
-        return await self.repo.create(job)
+        job = await self.repo.create(job)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "create", "job", str(job.id), data.model_dump(mode="json"))
+        return job
 
     async def list_jobs(
         self,
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
-    ) -> list[Job]:
-        return await self.repo.get_all(tenant_id, status=status, customer_id=customer_id)
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "asc",
+    ) -> tuple[list[Job], int]:
+        return await self.repo.get_all(
+            tenant_id, status=status, customer_id=customer_id,
+            page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
+        )
 
     async def get_job(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> Job:
         job = await self.repo.get_by_id(job_id, tenant_id)
@@ -65,7 +78,10 @@ class JobService:
         job = await self.get_job(job_id, tenant_id)
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(job, field, value)
-        return await self.repo.update(job)
+        job = await self.repo.update(job)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "update", "job", str(job.id), data.model_dump(exclude_unset=True))
+        return job
 
     async def update_status(
         self, job_id: uuid.UUID, tenant_id: uuid.UUID, data: JobStatusUpdate
@@ -88,4 +104,7 @@ class JobService:
             )
 
         job.status = new_status
-        return await self.repo.update(job)
+        job = await self.repo.update(job)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "update", "job", str(job.id), {"status": new_status.value})
+        return job

@@ -8,12 +8,15 @@ from app.models.service_contract import ServiceContract
 from app.repositories.location_repository import LocationRepository
 from app.repositories.service_contract_repository import ServiceContractRepository
 from app.schemas.service_contract import ServiceContractCreate, ServiceContractUpdate
+from app.services.audit_service import AuditService
 
 
 class ServiceContractService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, user_id: uuid.UUID | None = None):
         self.repo = ServiceContractRepository(db)
         self.location_repo = LocationRepository(db)
+        self.audit = AuditService(db)
+        self.user_id = user_id
 
     async def create_contract(
         self, tenant_id: uuid.UUID, data: ServiceContractCreate
@@ -33,7 +36,10 @@ class ServiceContractService:
             next_due_date=data.next_due_date,
             sla_hours=data.sla_hours,
         )
-        return await self.repo.create(contract)
+        contract = await self.repo.create(contract)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "create", "service_contract", str(contract.id), data.model_dump(mode="json"))
+        return contract
 
     async def list_contracts(
         self,
@@ -41,9 +47,15 @@ class ServiceContractService:
         location_id: uuid.UUID | None = None,
         customer_id: uuid.UUID | None = None,
         is_active: bool | None = None,
-    ) -> list[ServiceContract]:
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "asc",
+    ) -> tuple[list[ServiceContract], int]:
         return await self.repo.get_all(
-            tenant_id, location_id=location_id, customer_id=customer_id, is_active=is_active
+            tenant_id, location_id=location_id, customer_id=customer_id,
+            is_active=is_active, page=page, page_size=page_size,
+            sort_by=sort_by, sort_order=sort_order,
         )
 
     async def get_contract(
@@ -63,10 +75,15 @@ class ServiceContractService:
         contract = await self.get_contract(contract_id, tenant_id)
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(contract, field, value)
-        return await self.repo.update(contract)
+        contract = await self.repo.update(contract)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "update", "service_contract", str(contract.id), data.model_dump(exclude_unset=True, mode="json"))
+        return contract
 
     async def delete_contract(
         self, contract_id: uuid.UUID, tenant_id: uuid.UUID
     ) -> None:
         contract = await self.get_contract(contract_id, tenant_id)
+        if self.user_id:
+            await self.audit.log(tenant_id, self.user_id, "delete", "service_contract", str(contract.id))
         await self.repo.soft_delete(contract)
