@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.title }} - FieldFlow{% endblock %}
+
+{% block content %}
+<div x-data="{ statusError: '' }">
+    <!-- Back link -->
+    <a href="/app/jobs" class="text-sm text-indigo-600 hover:text-indigo-900">&larr; Tilbake til jobber</a>
+
+    <div class="mt-4 overflow-hidden rounded-lg bg-white shadow">
+        <div class="px-6 py-5 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-gray-900">{{ job.title }}</h1>
+                <p class="mt-1 text-sm text-gray-500">Opprettet {{ job.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+            </div>
+            <div class="mt-3 sm:mt-0">
+                {% if job.status.value == 'unscheduled' %}
+                <span class="inline-flex rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-800">Uplanlagt</span>
+                {% elif job.status.value == 'scheduled' %}
+                <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">Planlagt</span>
+                {% elif job.status.value == 'in_progress' %}
+                <span class="inline-flex rounded-full bg-yellow-100 px-3 py-1 text-sm font-semibold text-yellow-800">Under arbeid</span>
+                {% elif job.status.value == 'completed' %}
+                <span class="inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">Fullfort</span>
+                {% elif job.status.value == 'cancelled' %}
+                <span class="inline-flex rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-800">Kansellert</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="border-t border-gray-200 px-6 py-5">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Beskrivelse</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.description or 'Ingen beskrivelse' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Serviceavtale</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.service_contract_id }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Sist oppdatert</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ job.updated_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Status transitions -->
+        {% if job.status.value not in ['completed', 'cancelled'] %}
+        <div class="border-t border-gray-200 px-6 py-5">
+            <h3 class="text-sm font-medium text-gray-900">Endre status</h3>
+
+            <div x-show="statusError" class="mt-2 rounded-md bg-red-50 p-3">
+                <p class="text-sm text-red-700" x-text="statusError"></p>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+                {% if job.status.value == 'unscheduled' %}
+                <button @click="
+                    statusError = '';
+                    const token = document.cookie.split('; ').find(c => c.startsWith('access_token='))?.split('=')[1];
+                    const resp = await fetch('/jobs/{{ job.id }}/status', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                        body: JSON.stringify({status: 'scheduled'})
+                    });
+                    if (resp.ok) { window.location.reload(); }
+                    else { const d = await resp.json().catch(() => ({})); statusError = d.detail || 'Feil'; }
+                " class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+                    Planlegg
+                </button>
+                {% elif job.status.value == 'scheduled' %}
+                <button @click="
+                    statusError = '';
+                    const token = document.cookie.split('; ').find(c => c.startsWith('access_token='))?.split('=')[1];
+                    const resp = await fetch('/jobs/{{ job.id }}/status', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                        body: JSON.stringify({status: 'in_progress'})
+                    });
+                    if (resp.ok) { window.location.reload(); }
+                    else { const d = await resp.json().catch(() => ({})); statusError = d.detail || 'Feil'; }
+                " class="rounded-md bg-yellow-600 px-3 py-2 text-sm font-semibold text-white hover:bg-yellow-500">
+                    Start arbeid
+                </button>
+                {% elif job.status.value == 'in_progress' %}
+                <button @click="
+                    statusError = '';
+                    const token = document.cookie.split('; ').find(c => c.startsWith('access_token='))?.split('=')[1];
+                    const resp = await fetch('/jobs/{{ job.id }}/status', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                        body: JSON.stringify({status: 'completed'})
+                    });
+                    if (resp.ok) { window.location.reload(); }
+                    else { const d = await resp.json().catch(() => ({})); statusError = d.detail || 'Feil'; }
+                " class="rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-500">
+                    Fullfør
+                </button>
+                {% endif %}
+
+                <button @click="
+                    statusError = '';
+                    const token = document.cookie.split('; ').find(c => c.startsWith('access_token='))?.split('=')[1];
+                    const resp = await fetch('/jobs/{{ job.id }}/status', {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+                        body: JSON.stringify({status: 'cancelled'})
+                    });
+                    if (resp.ok) { window.location.reload(); }
+                    else { const d = await resp.json().catch(() => ({})); statusError = d.detail || 'Feil'; }
+                " class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500">
+                    Kanseller
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

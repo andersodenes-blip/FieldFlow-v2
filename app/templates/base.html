@@ -60,11 +60,11 @@
                 </button>
             </div>
             <nav class="mt-8 px-2 space-y-1">
-                <a href="/app/dashboard" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Dashboard</a>
-                <a href="/app/regions" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Regioner</a>
-                <a href="/app/technicians" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Teknikere</a>
-                <a href="/app/customers" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Kunder</a>
-                <a href="/app/jobs" class="text-indigo-100 hover:bg-indigo-600 group flex items-center px-2 py-2 text-sm font-medium rounded-md">Jobber</a>
+                <a href="/app/dashboard" class="{% if active_page == 'dashboard' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">Dashboard</a>
+                <a href="/app/regions" class="{% if active_page == 'regions' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">Regioner</a>
+                <a href="/app/technicians" class="{% if active_page == 'technicians' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">Teknikere</a>
+                <a href="/app/customers" class="{% if active_page == 'customers' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">Kunder</a>
+                <a href="/app/jobs" class="{% if active_page == 'jobs' %}bg-indigo-800 text-white{% else %}text-indigo-100 hover:bg-indigo-600{% endif %} group flex items-center px-2 py-2 text-sm font-medium rounded-md">Jobber</a>
             </nav>
         </div>
 

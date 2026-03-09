@@ -141,3 +141,205 @@ async def customers_table(
         "page_size": page_size,
         "search": search or "",
     })
+
+
+# ── Regions ──────────────────────────────────────────────────────────────
+
+
+@router.get("/regions", response_class=HTMLResponse)
+async def regions_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/app/login")
+
+    from app.services.region_service import RegionService
+
+    service = RegionService(db)
+    regions, total = await service.list_regions(user.tenant_id, page=1, page_size=20)
+
+    return templates.TemplateResponse("regions/list.html", {
+        "request": request,
+        "user": user,
+        "active_page": "regions",
+        "regions": regions,
+        "total": total,
+        "page": 1,
+        "page_size": 20,
+    })
+
+
+@router.get("/regions/table", response_class=HTMLResponse)
+async def regions_table(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse(status_code=401, content="Unauthorized")
+
+    from app.services.region_service import RegionService
+
+    service = RegionService(db)
+    regions, total = await service.list_regions(user.tenant_id, page=page, page_size=page_size)
+
+    return templates.TemplateResponse("regions/_table.html", {
+        "request": request,
+        "user": user,
+        "regions": regions,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    })
+
+
+# ── Technicians ──────────────────────────────────────────────────────────
+
+
+@router.get("/technicians", response_class=HTMLResponse)
+async def technicians_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/app/login")
+
+    from app.services.region_service import RegionService
+    from app.services.technician_service import TechnicianService
+
+    region_service = RegionService(db)
+    regions, _ = await region_service.list_regions(user.tenant_id, page=1, page_size=100)
+
+    tech_service = TechnicianService(db)
+    technicians, total = await tech_service.list_technicians(user.tenant_id, page=1, page_size=20)
+
+    region_map = {r.id: r.name for r in regions}
+
+    return templates.TemplateResponse("technicians/list.html", {
+        "request": request,
+        "user": user,
+        "active_page": "technicians",
+        "regions": regions,
+        "technicians": technicians,
+        "region_map": region_map,
+        "total": total,
+        "page": 1,
+        "page_size": 20,
+        "region_id": "",
+    })
+
+
+@router.get("/technicians/table", response_class=HTMLResponse)
+async def technicians_table(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    region_id: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse(status_code=401, content="Unauthorized")
+
+    from app.services.region_service import RegionService
+    from app.services.technician_service import TechnicianService
+
+    rid = uuid.UUID(region_id) if region_id else None
+
+    tech_service = TechnicianService(db)
+    technicians, total = await tech_service.list_technicians(
+        user.tenant_id, region_id=rid, page=page, page_size=page_size
+    )
+
+    region_service = RegionService(db)
+    regions, _ = await region_service.list_regions(user.tenant_id, page=1, page_size=100)
+    region_map = {r.id: r.name for r in regions}
+
+    return templates.TemplateResponse("technicians/_table.html", {
+        "request": request,
+        "user": user,
+        "technicians": technicians,
+        "region_map": region_map,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "region_id": region_id or "",
+    })
+
+
+# ── Jobs ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/jobs", response_class=HTMLResponse)
+async def jobs_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    status: str | None = Query(None),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/app/login")
+
+    from app.services.job_service import JobService
+
+    service = JobService(db)
+    jobs, total = await service.list_jobs(user.tenant_id, status=status, page=1, page_size=20)
+
+    return templates.TemplateResponse("jobs/list.html", {
+        "request": request,
+        "user": user,
+        "active_page": "jobs",
+        "jobs": jobs,
+        "total": total,
+        "page": 1,
+        "page_size": 20,
+        "status_filter": status or "",
+    })
+
+
+@router.get("/jobs/table", response_class=HTMLResponse)
+async def jobs_table(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    status: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return HTMLResponse(status_code=401, content="Unauthorized")
+
+    from app.services.job_service import JobService
+
+    service = JobService(db)
+    jobs, total = await service.list_jobs(
+        user.tenant_id, status=status, page=page, page_size=page_size
+    )
+
+    return templates.TemplateResponse("jobs/_table.html", {
+        "request": request,
+        "user": user,
+        "jobs": jobs,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "status_filter": status or "",
+    })
+
+
+@router.get("/jobs/{job_id}", response_class=HTMLResponse)
+async def job_detail(request: Request, job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/app/login")
+
+    from app.services.job_service import JobService
+
+    service = JobService(db)
+    job = await service.get_job(job_id, user.tenant_id)
+
+    return templates.TemplateResponse("jobs/detail.html", {
+        "request": request,
+        "user": user,
+        "active_page": "jobs",
+        "job": job,
+    })
