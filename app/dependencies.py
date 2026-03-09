@@ -137,3 +137,41 @@ async def get_current_user(
 async def get_current_tenant(request: Request, user=Depends(get_current_user)):
     request.state.tenant_id = user.tenant_id
     return user.tenant_id
+
+
+def require_role(*allowed_roles: str):
+    """FastAPI dependency that restricts access to users with specific roles.
+
+    Usage:
+        @router.get("/admin-only", dependencies=[Depends(require_role("org:admin"))])
+        async def admin_endpoint(...): ...
+
+    Role mapping:
+        Auth0 roles (org:admin, org:member) map to internal UserRole values.
+        Internal roles (owner, admin, planner, dispatcher, viewer) are also accepted.
+    """
+    # Map Auth0 role names to internal role names
+    _AUTH0_ROLE_MAP = {
+        "org:admin": {"owner", "admin"},
+        "org:member": {"planner", "dispatcher", "viewer"},
+    }
+
+    # Expand Auth0 roles to internal roles
+    resolved: set[str] = set()
+    for role in allowed_roles:
+        if role in _AUTH0_ROLE_MAP:
+            resolved.update(_AUTH0_ROLE_MAP[role])
+        else:
+            resolved.add(role)
+
+    async def _check_role(
+        current_user: Annotated["User", Depends(get_current_user)],
+    ):
+        if current_user.role.value not in resolved:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return Depends(_check_role)
