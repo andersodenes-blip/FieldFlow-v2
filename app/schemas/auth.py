@@ -14,6 +14,13 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class Auth0CallbackResponse(BaseModel):
+    access_token: str
+    id_token: str
+    org_id: str
+    token_type: str = "bearer"
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID

@@ -8,7 +8,8 @@
       "Bash(powershell.exe:*)",
       "Bash(pip install:*)",
       "Bash(git status:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(where python:*)"
     ]
   }
 }
