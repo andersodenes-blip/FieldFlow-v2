@@ -428,19 +428,21 @@ class RoutePlanningService:
                 for pw in list(pending_work):
                     travel_min = estimate_drive_minutes(cur_lat, cur_lon, pw.latitude, pw.longitude, config)
                     travel_hours = travel_min / 60.0
-                    needed = travel_hours + pw.work_hours
+                    # v1 rule: first job of the day has NO travel time in capacity
+                    is_first = (hours_today == 0)
+                    needed = pw.work_hours if is_first else (travel_hours + pw.work_hours)
                     space_left = max_hours - hours_today
 
                     if needed <= space_left:
-                        # Full pending piece fits
                         pw.drive_minutes = int(travel_min)
                         day_jobs.append(pw)
                         hours_today += needed
                         cur_lat, cur_lon = pw.latitude, pw.longitude
                         pending_work.remove(pw)
-                    elif space_left > travel_hours + 0.25:
+                    elif space_left > (0 if is_first else travel_hours) + 0.25:
                         # Partial fit — split again
-                        can_work = space_left - travel_hours
+                        overhead = 0 if is_first else travel_hours
+                        can_work = space_left - overhead
                         part_job = JobWithCoords(
                             job_id=pw.job_id, title=pw.title, address=pw.address,
                             latitude=pw.latitude, longitude=pw.longitude,
@@ -459,7 +461,6 @@ class RoutePlanningService:
 
                 # ── Process new jobs using nearest-neighbor ──
                 while remaining_jobs and hours_today < max_hours:
-                    # Find nearest job from current position
                     nearest_idx = min(
                         range(len(remaining_jobs)),
                         key=lambda i: haversine_km(cur_lat, cur_lon, remaining_jobs[i].latitude, remaining_jobs[i].longitude),
@@ -468,20 +469,22 @@ class RoutePlanningService:
 
                     travel_min = estimate_drive_minutes(cur_lat, cur_lon, job.latitude, job.longitude, config)
                     travel_hours = travel_min / 60.0
-                    needed = travel_hours + job.work_hours
+                    # v1 rule: first job of the day has NO travel time in capacity
+                    is_first = (hours_today == 0)
+                    needed = job.work_hours if is_first else (travel_hours + job.work_hours)
                     space_left = max_hours - hours_today
 
                     if needed <= space_left:
-                        # Full job fits
                         remaining_jobs.pop(nearest_idx)
                         job.drive_minutes = int(travel_min)
                         day_jobs.append(job)
                         hours_today += needed
                         cur_lat, cur_lon = job.latitude, job.longitude
-                    elif space_left > travel_hours + 0.25:
+                    elif space_left > (0 if is_first else travel_hours) + 0.25:
                         # Partial fit — split into today + pending
                         remaining_jobs.pop(nearest_idx)
-                        can_work = round(space_left - travel_hours, 2)
+                        overhead = 0 if is_first else travel_hours
+                        can_work = round(space_left - overhead, 2)
                         total_parts = max(2, math.ceil(job.work_hours / max_hours) + 1)
 
                         today_part = JobWithCoords(
@@ -504,14 +507,14 @@ class RoutePlanningService:
                         cur_lat, cur_lon = job.latitude, job.longitude
                         break  # day full
                     else:
-                        # Can't fit even partial — try next nearest
-                        # But if travel alone exceeds space, day is effectively full
+                        # Can't fit — day effectively full
+                        if is_first:
+                            # Even without travel the job exceeds capacity;
+                            # it will be split as first job on next day
+                            break
                         if travel_hours >= space_left:
                             break
-                        # Skip this job for now (too far), try next nearest
-                        # Move it to the end so we try others first
                         remaining_jobs.append(remaining_jobs.pop(nearest_idx))
-                        # Avoid infinite loop if no job fits
                         if len(remaining_jobs) <= 1:
                             break
 

@@ -159,12 +159,13 @@ async def main():
         print(f"{'TOTALT':15s} | {total_routes:6d} | {total_visits:6d} | {total_no_coords:11d} |")
 
         # ── VERIFY 7.5h LIMIT ───────────────────────────────────────────
-        print(f"\n=== Verifisering: 7.5t-grensen ===")
+        # v1 rule: first visit (sequence_order=1) travel does NOT count toward 7.5h
+        print(f"\n=== Verifisering: 7.5t-grensen (v1-regel: forste besok uten reisetid) ===")
         overloaded = await conn.fetch("""
             SELECT r.route_date, t.name as tech, reg.name as region,
                    COUNT(rv.id) as visits,
                    SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
-                   SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 as drive_hours
+                   SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as drive_hours
             FROM routes r
             JOIN technicians t ON r.technician_id = t.id
             JOIN regions reg ON r.region_id = reg.id
@@ -174,8 +175,10 @@ async def main():
             LEFT JOIN service_contracts sc ON j.service_contract_id = sc.id
             WHERE r.tenant_id = $1
             GROUP BY r.route_date, t.name, reg.name
-            HAVING SUM(COALESCE(sc.sla_hours, 1.0)) + SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 > 7.5
-            ORDER BY SUM(COALESCE(sc.sla_hours, 1.0)) + SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 DESC
+            HAVING SUM(COALESCE(sc.sla_hours, 1.0))
+                 + SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 > 7.5
+            ORDER BY SUM(COALESCE(sc.sla_hours, 1.0))
+                 + SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 DESC
             LIMIT 20
         """, TENANT_ID)
 
@@ -217,7 +220,7 @@ async def main():
             SELECT r.route_date, t.name as tech, reg.name as region,
                    COUNT(rv.id) as visits,
                    SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
-                   SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 as drive_hours
+                   SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as drive_hours
             FROM routes r
             JOIN technicians t ON r.technician_id = t.id
             JOIN regions reg ON r.region_id = reg.id

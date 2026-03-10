@@ -418,7 +418,7 @@
       <div class="controls-bar">
         <div class="ctrl-group">
           <label>Region</label>
-          <select x-model="regionId" @change="onRegionChange()" style="min-width: 160px;">
+          <select x-model="regionId" style="min-width: 160px;">
             {% for region in regions %}
             <option value="{{ region.id }}" {% if selected_region and region.id == selected_region.id %}selected{% endif %}>{{ region.name }}</option>
             {% endfor %}
@@ -762,6 +762,11 @@ function routeDashboard() {
       this.calYear = sd.getFullYear();
       this.calMonth = sd.getMonth();
       this.calWeekStart = this.getMonday(sd);
+
+      // Watch region changes (more reliable than @change on select)
+      this.$watch('regionId', (newVal, oldVal) => {
+        if (newVal && newVal !== oldVal) this.onRegionChange();
+      });
 
       if (this.regionId) this.loadRoutes();
     },
