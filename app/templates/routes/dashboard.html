@@ -608,7 +608,9 @@ function routeDashboard() {
           this.showToast('Planlegging fullfort: ' + this.planResult.routes_created + ' ruter', 'success');
           await this.loadRoutes();
         } else if (resp) {
-          this.showToast('Planlegging feilet: ' + (await resp.text()), 'error');
+          const errText = await resp.text();
+          console.error('Planlegging feilet:', resp.status, errText);
+          this.showToast('Planlegging feilet (' + resp.status + '): ' + errText, 'error');
         }
       } finally {
         this.planning = false;
@@ -636,6 +638,10 @@ function routeDashboard() {
         this.selectedRouteId = null;
         if (this.routeLayer) this.routeLayer.clearLayers();
         this.buildCalWeek();
+      } else if (resp) {
+        const errText = await resp.text();
+        console.error('loadRoutes feilet:', resp.status, errText);
+        this.showToast('Kunne ikke laste ruter: ' + resp.status, 'error');
       }
     },
 

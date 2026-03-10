@@ -49,7 +49,7 @@ async def list_routes(
     technician_id: uuid.UUID | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
 ):
     service = RouteService(db, user_id=current_user.id)
     items, total = await service.list_routes(

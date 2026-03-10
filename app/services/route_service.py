@@ -185,8 +185,6 @@ class RouteService:
             sla = result.scalar_one_or_none()
             if not sla or sla <= 0:
                 total += 1.0
-            elif sla > 4:
-                total += 4.0
             else:
                 total += float(sla)
         return total
