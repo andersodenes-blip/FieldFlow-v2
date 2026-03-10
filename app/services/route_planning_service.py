@@ -36,6 +36,8 @@ class JobWithCoords:
     latitude: float
     longitude: float
     work_hours: float
+    part: int = 1
+    total_parts: int = 1
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -116,7 +118,7 @@ class RoutePlanningService:
                 "capacity_warnings": ["Ingen aktive teknikere i regionen"],
             }
 
-        # Load unscheduled jobs for this region
+        # Load all unscheduled jobs for the region
         all_jobs = await self._get_unscheduled_jobs(region_id, tenant_id)
         if not all_jobs:
             return {
@@ -197,21 +199,37 @@ class RoutePlanningService:
         )
         return list(result.scalars().all())
 
-    async def _get_unscheduled_jobs(self, region_id: uuid.UUID, tenant_id: uuid.UUID) -> list[JobWithCoords]:
-        """Load unscheduled jobs for a region with their location coordinates."""
+    async def _get_unscheduled_jobs(
+        self, region_id: uuid.UUID, tenant_id: uuid.UUID,
+    ) -> list[JobWithCoords]:
+        """Load ALL unscheduled jobs for a region.
+
+        Work hours come from service_contract.sla_hours:
+        - NULL or 0 → default 1.0 hour
+        """
+        region_name_sq = (
+            select(Region.name)
+            .where(Region.id == region_id)
+            .correlate_except(Region)
+            .scalar_subquery()
+        )
         result = await self.db.execute(
-            select(Job, Location)
+            select(Job, Location, ServiceContract.sla_hours)
             .join(ServiceContract, Job.service_contract_id == ServiceContract.id)
             .join(Location, ServiceContract.location_id == Location.id)
             .where(
                 Job.tenant_id == tenant_id,
                 Job.status == JobStatus.unscheduled,
-                Location.city == select(Region.name).where(Region.id == region_id).correlate_except(Region).scalar_subquery(),
+                Location.city == region_name_sq,
             )
+            .order_by(Job.created_at.asc())
         )
         jobs = []
-        for job, location in result.all():
-            work_hours = 4.0  # default
+        for job, location, sla_hours in result.all():
+            if not sla_hours or sla_hours <= 0:
+                work_hours = 1.0
+            else:
+                work_hours = float(sla_hours)
             jobs.append(JobWithCoords(
                 job_id=job.id,
                 title=job.title,
@@ -305,21 +323,56 @@ class RoutePlanningService:
         working_days: list[date],
         config: RegionRouteConfig,
     ) -> dict[uuid.UUID, dict[date, list[JobWithCoords]]]:
-        """Distribute each technician's jobs evenly across working days."""
+        """Fill each day to max capacity (7.5h) before moving to the next.
+
+        Jobs exceeding max_hours are split across consecutive days.
+        E.g. 18h job → day1: 7.5h, day2: 7.5h, day3: 3.0h.
+        """
         result: dict[uuid.UUID, dict[date, list[JobWithCoords]]] = {}
+        max_hours = config.max_hours_per_day
 
         for tech_id, jobs in tech_jobs.items():
             result[tech_id] = {d: [] for d in working_days}
             if not jobs:
                 continue
 
-            # Calculate max jobs per day based on capacity
-            max_jobs_per_day = max(1, int(config.max_hours_per_day / config.default_work_hours))
+            day_hours: dict[date, float] = {d: 0.0 for d in working_days}
 
-            # Round-robin distribute
-            for i, job in enumerate(jobs):
-                day_idx = i % len(working_days)
-                result[tech_id][working_days[day_idx]].append(job)
+            for job in jobs:
+                if job.work_hours <= max_hours:
+                    # Normal job — find first day with capacity
+                    for day in working_days:
+                        if day_hours[day] + job.work_hours <= max_hours:
+                            result[tech_id][day].append(job)
+                            day_hours[day] += job.work_hours
+                            break
+                else:
+                    # Multi-day job — split into chunks
+                    remaining = job.work_hours
+                    total_parts = math.ceil(remaining / max_hours)
+                    part_num = 0
+
+                    for day in working_days:
+                        if remaining <= 0:
+                            break
+                        available = max_hours - day_hours[day]
+                        if available <= 0:
+                            continue
+                        chunk = min(remaining, available)
+                        part_num += 1
+                        part_job = JobWithCoords(
+                            job_id=job.job_id,
+                            title=job.title,
+                            address=job.address,
+                            latitude=job.latitude,
+                            longitude=job.longitude,
+                            work_hours=chunk,
+                            part=part_num,
+                            total_parts=total_parts,
+                        )
+                        result[tech_id][day].append(part_job)
+                        day_hours[day] += chunk
+                        remaining -= chunk
 
         return result
 
@@ -383,29 +436,29 @@ class RoutePlanningService:
         """Build Route, ScheduledVisit, and RouteVisit records."""
         routes_created = 0
         visits_assigned = 0
+        # Track which job_ids have been fully scheduled
+        scheduled_job_ids: set[uuid.UUID] = set()
+        # Track placed parts per job for multi-day validation
+        placed_parts: dict[uuid.UUID, int] = defaultdict(int)
 
         for tech_id, day_jobs in tech_day_jobs.items():
             tech = next((t for t in technicians if t.id == tech_id), None)
             if not tech:
                 continue
 
-            # Technician start location (fallback to first job)
-            start_lat = getattr(tech, "home_latitude", None)
-            start_lon = getattr(tech, "home_longitude", None)
+            start_lat = tech.home_latitude
+            start_lon = tech.home_longitude
 
             for route_date, jobs in sorted(day_jobs.items()):
                 if not jobs:
                     continue
 
-                # Use first job as start if no home coordinates
                 if start_lat is None:
                     start_lat = jobs[0].latitude
                     start_lon = jobs[0].longitude
 
-                # Order jobs using nearest-neighbor
                 ordered_jobs = nearest_neighbor_order(jobs, start_lat, start_lon)
 
-                # Create Route
                 route = Route(
                     tenant_id=tenant_id,
                     region_id=region_id,
@@ -416,26 +469,28 @@ class RoutePlanningService:
                 route = await self.route_repo.create(route)
                 routes_created += 1
 
-                # Create ScheduledVisit + RouteVisit for each job
                 prev_lat, prev_lon = start_lat, start_lon
                 route_visits = []
                 for seq, job in enumerate(ordered_jobs, 1):
-                    # Create ScheduledVisit
+                    # Notes for multi-day jobs
+                    notes = None
+                    if job.total_parts > 1:
+                        notes = f"Del {job.part}/{job.total_parts} ({job.work_hours:.1f}t)"
+
                     sv = ScheduledVisit(
                         tenant_id=tenant_id,
                         job_id=job.job_id,
                         technician_id=tech_id,
                         scheduled_date=route_date,
                         status=VisitStatus.planned,
+                        notes=notes,
                     )
                     sv = await self.visit_repo.create(sv)
 
-                    # Calculate drive time from previous point
                     drive_min = int(estimate_drive_minutes(
                         prev_lat, prev_lon, job.latitude, job.longitude, config
                     ))
 
-                    # Create RouteVisit
                     rv = RouteVisit(
                         tenant_id=tenant_id,
                         route_id=route.id,
@@ -447,16 +502,19 @@ class RoutePlanningService:
                     prev_lat, prev_lon = job.latitude, job.longitude
                     visits_assigned += 1
 
+                    placed_parts[job.job_id] += 1
+                    if placed_parts[job.job_id] >= job.total_parts:
+                        scheduled_job_ids.add(job.job_id)
+
                 await self.route_repo.bulk_create_visits(route_visits)
 
-                # Update job status to scheduled
-                job_ids = [j.job_id for j in ordered_jobs]
-                for job_id in job_ids:
-                    result = await self.db.execute(
-                        select(Job).where(Job.id == job_id)
-                    )
-                    job_model = result.scalar_one_or_none()
-                    if job_model:
-                        job_model.status = JobStatus.scheduled
+        # Mark fully scheduled jobs
+        for job_id in scheduled_job_ids:
+            result = await self.db.execute(
+                select(Job).where(Job.id == job_id)
+            )
+            job_model = result.scalar_one_or_none()
+            if job_model:
+                job_model.status = JobStatus.scheduled
 
         return routes_created, visits_assigned

@@ -19,6 +19,11 @@ FILES = {
         r"C:\Users\anders.odenes\OneDrive - Oy Hedengren Ab"
         r"\Työpöytä\FieldFlow\data\drammen\Årskontroller Drammen.xlsx"
     ),
+    "master": r"C:\FieldFlow-v2\data\Master.xlsx",
+    "master-stavanger": (
+        r"C:\FieldFlow-v2\data\stavanger"
+        r"\Årskontroller Hedengren Master 3-9-2026 1-09-24 PM.xlsx"
+    ),
 }
 
 arg = sys.argv[1] if len(sys.argv) > 1 else "bergen"

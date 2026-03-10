@@ -2,12 +2,13 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
+from app.models.job import Job, JobStatus
 from app.models.route import Route, RouteStatus
 from app.models.route_visit import RouteVisit
+from app.models.scheduled_visit import ScheduledVisit
 
 
 class RouteRepository:
@@ -75,7 +76,10 @@ class RouteRepository:
     async def delete_routes_for_region_dates(
         self, tenant_id: uuid.UUID, region_id: uuid.UUID, start_date: date, end_date: date
     ) -> int:
-        """Delete existing draft routes for a region/date range before replanning."""
+        """Delete existing draft routes for a region/date range before replanning.
+
+        Also resets associated jobs to 'unscheduled' and deletes scheduled_visits.
+        """
         # Find route IDs to delete
         result = await self.db.execute(
             select(Route.id).where(
@@ -90,10 +94,38 @@ class RouteRepository:
         if not route_ids:
             return 0
 
-        # Delete visits first
+        # Find scheduled_visit IDs linked to these routes
+        sv_result = await self.db.execute(
+            select(RouteVisit.scheduled_visit_id).where(
+                RouteVisit.route_id.in_(route_ids)
+            )
+        )
+        sv_ids = [r for r in sv_result.scalars().all()]
+
+        # Find job IDs linked to these scheduled_visits → reset to unscheduled
+        if sv_ids:
+            job_result = await self.db.execute(
+                select(ScheduledVisit.job_id).where(
+                    ScheduledVisit.id.in_(sv_ids)
+                )
+            )
+            job_ids = [r for r in job_result.scalars().all()]
+            if job_ids:
+                await self.db.execute(
+                    update(Job)
+                    .where(Job.id.in_(job_ids), Job.status == JobStatus.scheduled)
+                    .values(status=JobStatus.unscheduled)
+                )
+
+        # Delete route_visits
         await self.db.execute(
             delete(RouteVisit).where(RouteVisit.route_id.in_(route_ids))
         )
+        # Delete scheduled_visits
+        if sv_ids:
+            await self.db.execute(
+                delete(ScheduledVisit).where(ScheduledVisit.id.in_(sv_ids))
+            )
         # Delete routes
         await self.db.execute(
             delete(Route).where(Route.id.in_(route_ids))

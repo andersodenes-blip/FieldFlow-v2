@@ -22,7 +22,7 @@ class RegionRouteConfig:
     haversine_correction_factor: float = 1.0
     max_capacity_share: float = 0.65
     reassign_weights: ReassignWeights = field(default_factory=ReassignWeights)
-    default_work_hours: float = 4.0
+    default_work_hours: float = 1.0
     max_capacity_fix_iterations: int = 100
 
 

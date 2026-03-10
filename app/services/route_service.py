@@ -131,13 +131,20 @@ class RouteService:
                 continue
 
             job_result = await self.db.execute(
-                select(Job)
+                select(Job, ServiceContract.sla_hours)
+                .join(ServiceContract, ServiceContract.id == Job.service_contract_id)
                 .where(Job.id == sv.job_id)
-                .options()
             )
-            job = job_result.scalar_one_or_none()
-            if not job:
+            row = job_result.one_or_none()
+            if not row:
                 continue
+            job, sla_hours = row
+
+            # Work hours: NULL/0 → 1.0
+            if not sla_hours or sla_hours <= 0:
+                work_hours = 1.0
+            else:
+                work_hours = float(sla_hours)
 
             loc_result = await self.db.execute(
                 select(Location)
@@ -155,12 +162,34 @@ class RouteService:
                 location_address=loc.address if loc else "Ukjent",
                 latitude=loc.latitude if loc else None,
                 longitude=loc.longitude if loc else None,
-                estimated_work_hours=4.0,  # default
+                estimated_work_hours=work_hours,
             ))
         return responses
 
     async def _calc_total_hours(self, visits: list[RouteVisit]) -> float:
-        return len(visits) * 4.0  # default work hours per visit
+        """Calculate total hours by looking up actual sla_hours per visit."""
+        total = 0.0
+        for rv in visits:
+            sv_result = await self.db.execute(
+                select(ScheduledVisit.job_id).where(ScheduledVisit.id == rv.scheduled_visit_id)
+            )
+            job_id = sv_result.scalar_one_or_none()
+            if not job_id:
+                total += 1.0
+                continue
+            result = await self.db.execute(
+                select(ServiceContract.sla_hours)
+                .join(Job, Job.service_contract_id == ServiceContract.id)
+                .where(Job.id == job_id)
+            )
+            sla = result.scalar_one_or_none()
+            if not sla or sla <= 0:
+                total += 1.0
+            elif sla > 4:
+                total += 4.0
+            else:
+                total += float(sla)
+        return total
 
     def _calc_total_km(self, visits: list[RouteVisitResponse]) -> float:
         # Approximate from drive minutes (rough conversion)
