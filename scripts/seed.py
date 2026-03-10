@@ -21,7 +21,10 @@ from app.services.auth_service import hash_password
 
 
 async def seed():
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        connect_args={"statement_cache_size": 0},
+    )
 
     # Create all tables
     async with engine.begin() as conn:
