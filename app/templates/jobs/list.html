@@ -3,48 +3,341 @@
 {% block title %}Jobber - FieldFlow{% endblock %}
 
 {% block content %}
-<div x-data="{ filterStatus: '{{ status_filter or '' }}' }">
-    <div class="sm:flex sm:items-center sm:justify-between">
-        <h1 class="text-2xl font-bold text-gray-900">Jobber</h1>
+<style>
+    .dash-bg { background: #f0f2f5; }
+    .dash-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .dash-header {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 10px;
+    }
+    .job-modal-backdrop {
+        background: rgba(0,0,0,0.3);
+    }
+    .job-modal {
+        background: #fff;
+        border-radius: 12px;
+        max-width: 600px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .badge-unscheduled { background: #fff7ed; color: #ea580c; }
+    .badge-scheduled { background: #eff6ff; color: #2563eb; }
+    .badge-in_progress { background: #fefce8; color: #ca8a04; }
+    .badge-completed { background: #fdf2f8; color: #ec4899; }
+    .badge-cancelled { background: #f3f4f6; color: #6b7280; }
+</style>
+
+<div class="dash-bg -m-6 p-6 min-h-screen" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;"
+     x-data="jobList()">
+
+    <!-- Header -->
+    <div class="dash-header px-6 py-5 mb-6">
+        <h1 class="text-2xl font-bold text-white">Jobber{% if selected_region %} — {{ selected_region.name }}{% endif %}</h1>
+        <p class="mt-1 text-sm text-gray-300">{{ stats.total }} totalt &middot; {{ stats.completed }} utfort &middot; {{ stats.unscheduled }} uplanlagt</p>
     </div>
 
-    <!-- Status filter -->
-    <div class="mt-4 flex flex-wrap gap-2">
-        <button @click="filterStatus = ''; htmx.ajax('GET', '/app/jobs/table', '#job-table')"
-                :class="filterStatus === '' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Alle
-        </button>
-        <button @click="filterStatus = 'unscheduled'; htmx.ajax('GET', '/app/jobs/table?status=unscheduled', '#job-table')"
-                :class="filterStatus === 'unscheduled' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Uplanlagt
-        </button>
-        <button @click="filterStatus = 'scheduled'; htmx.ajax('GET', '/app/jobs/table?status=scheduled', '#job-table')"
-                :class="filterStatus === 'scheduled' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Planlagt
-        </button>
-        <button @click="filterStatus = 'in_progress'; htmx.ajax('GET', '/app/jobs/table?status=in_progress', '#job-table')"
-                :class="filterStatus === 'in_progress' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Under arbeid
-        </button>
-        <button @click="filterStatus = 'completed'; htmx.ajax('GET', '/app/jobs/table?status=completed', '#job-table')"
-                :class="filterStatus === 'completed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Fullfort
-        </button>
-        <button @click="filterStatus = 'cancelled'; htmx.ajax('GET', '/app/jobs/table?status=cancelled', '#job-table')"
-                :class="filterStatus === 'cancelled' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
-                class="rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-500 hover:text-white">
-            Kansellert
-        </button>
+    <!-- Region selector -->
+    {% if regions %}
+    <div class="dash-card p-3 mb-4">
+        <div class="flex flex-wrap gap-2">
+            {% for region in regions %}
+            <a href="/app/jobs?region_id={{ region.id }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                   {% if selected_region and selected_region.id == region.id %}text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}"
+               {% if selected_region and selected_region.id == region.id %}style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);"{% endif %}>
+                {{ region.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filters row -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <!-- Status filter -->
+        <div class="flex flex-wrap gap-2">
+            <button @click="setFilter('')"
+                    :class="filterStatus === '' ? 'text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    :style="filterStatus === '' ? 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' : ''"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Alle
+            </button>
+            <button @click="setFilter('unscheduled')"
+                    :class="filterStatus === 'unscheduled' ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Uplanlagt
+            </button>
+            <button @click="setFilter('scheduled')"
+                    :class="filterStatus === 'scheduled' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Planlagt
+            </button>
+            <button @click="setFilter('in_progress')"
+                    :class="filterStatus === 'in_progress' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Under arbeid
+            </button>
+            <button @click="setFilter('completed')"
+                    :class="filterStatus === 'completed' ? 'text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    :style="filterStatus === 'completed' ? 'background: #ec4899' : ''"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Fullfort
+            </button>
+            <button @click="setFilter('cancelled')"
+                    :class="filterStatus === 'cancelled' ? 'bg-gray-500 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium">
+                Kansellert
+            </button>
+        </div>
+        <!-- Search -->
+        <div class="flex-1 sm:max-w-xs">
+            <input type="text" placeholder="Sok adresse eller ticket..."
+                   x-model="searchQuery"
+                   @input.debounce.300ms="reloadTable()"
+                   class="block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500">
+        </div>
     </div>
 
     <!-- Jobs table -->
-    <div id="job-table" class="mt-6">
+    <div id="job-table" class="mt-2">
         {% include "jobs/_table.html" %}
     </div>
+
+    <!-- Job detail modal -->
+    <div x-show="modalOpen" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 job-modal-backdrop" @click="closeModal()"></div>
+            <div class="job-modal relative w-full p-6" x-show="modalOpen"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100">
+
+                <!-- Loading -->
+                <div x-show="modalLoading" class="py-12 text-center">
+                    <p class="text-sm text-gray-400">Laster...</p>
+                </div>
+
+                <!-- Content -->
+                <div x-show="!modalLoading && modalJob">
+                    <!-- Header -->
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-900" x-text="modalJob?.address || modalJob?.title"></h2>
+                            <p class="text-sm text-gray-500 mt-0.5" x-text="modalJob?.postal_code ? modalJob.postal_code : ''"></p>
+                        </div>
+                        <button @click="closeModal()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Status badge + technician -->
+                    <div class="mb-4 flex items-center gap-3">
+                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold"
+                              :class="'badge-' + (modalJob?.status || '')">
+                            <span x-text="statusLabel(modalJob?.status)"></span>
+                        </span>
+                        <span class="text-sm text-gray-500">
+                            <span x-text="modalJob?.technician_name ? 'Tildelt: ' + modalJob.technician_name : 'Ikke tildelt'"></span>
+                        </span>
+                    </div>
+
+                    <!-- Details grid -->
+                    <div class="grid grid-cols-2 gap-4 mb-5 text-sm">
+                        <div>
+                            <p class="text-gray-400 text-xs uppercase tracking-wider">Systemtype</p>
+                            <p class="font-medium text-gray-900 mt-0.5" x-text="modalJob?.service_type || '-'"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-xs uppercase tracking-wider">Ticket</p>
+                            <p class="font-medium text-gray-900 mt-0.5" x-text="modalJob?.external_id || '-'"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-xs uppercase tracking-wider">Opprettet</p>
+                            <p class="font-medium text-gray-900 mt-0.5" x-text="modalJob?.created_at || '-'"></p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-xs uppercase tracking-wider">Beskrivelse</p>
+                            <p class="font-medium text-gray-900 mt-0.5" x-text="modalJob?.description || '-'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Error -->
+                    <div x-show="modalError" class="mb-4 rounded-lg bg-red-50 p-3">
+                        <p class="text-sm text-red-700" x-text="modalError"></p>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <template x-if="modalJob && modalJob.status !== 'completed' && modalJob.status !== 'cancelled'">
+                        <div class="border-t border-gray-100 pt-4 mb-4">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Handlinger</p>
+                            <div class="flex flex-wrap gap-2">
+                                <!-- Complete -->
+                                <template x-if="modalJob.status === 'in_progress'">
+                                    <button @click="doAction('complete')"
+                                            class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500">
+                                        Fullfør
+                                    </button>
+                                </template>
+                                <!-- Schedule -->
+                                <template x-if="modalJob.status === 'unscheduled'">
+                                    <button @click="doAction('schedule')"
+                                            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500">
+                                        Planlegg
+                                    </button>
+                                </template>
+                                <!-- Start -->
+                                <template x-if="modalJob.status === 'scheduled'">
+                                    <button @click="doAction('start')"
+                                            class="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-400">
+                                        Start arbeid
+                                    </button>
+                                </template>
+                                <!-- Unschedule -->
+                                <template x-if="modalJob.status === 'scheduled' || modalJob.status === 'in_progress'">
+                                    <button @click="doAction('unschedule')"
+                                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        Utsett
+                                    </button>
+                                </template>
+                                <!-- Cancel -->
+                                <button @click="doAction('cancel')"
+                                        class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500">
+                                    Kanseller
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Audit history -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Historikk</p>
+                        <template x-if="modalHistory.length === 0">
+                            <p class="text-sm text-gray-400">Ingen historikk.</p>
+                        </template>
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            <template x-for="event in modalHistory" :key="event.id">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="text-xs text-gray-400 whitespace-nowrap" x-text="event.created_at"></span>
+                                    <span class="font-medium text-gray-700" x-text="event.action"></span>
+                                    <span class="text-gray-500 truncate" x-text="event.detail"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+function jobList() {
+    return {
+        filterStatus: '{{ status_filter or '' }}',
+        searchQuery: '{{ search or '' }}',
+        regionId: '{{ selected_region.id if selected_region else '' }}',
+        modalOpen: false,
+        modalLoading: false,
+        modalJob: null,
+        modalHistory: [],
+        modalError: '',
+
+        getToken() {
+            const c = document.cookie.split('; ').find(c => c.startsWith('access_token='));
+            return c ? c.split('=')[1] : '';
+        },
+
+        setFilter(status) {
+            this.filterStatus = status;
+            this.reloadTable();
+        },
+
+        reloadTable() {
+            let url = '/app/jobs/table?';
+            const params = [];
+            if (this.filterStatus) params.push('status=' + this.filterStatus);
+            if (this.searchQuery) params.push('search=' + encodeURIComponent(this.searchQuery));
+            if (this.regionId) params.push('region_id=' + this.regionId);
+            htmx.ajax('GET', url + params.join('&'), '#job-table');
+        },
+
+        async openModal(jobId) {
+            this.modalOpen = true;
+            this.modalLoading = true;
+            this.modalError = '';
+            this.modalJob = null;
+            this.modalHistory = [];
+
+            const token = this.getToken();
+            try {
+                const resp = await fetch('/jobs/' + jobId + '/detail', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (!resp.ok) throw new Error('Kunne ikke hente jobb');
+                this.modalJob = await resp.json();
+
+                // Fetch history
+                const hResp = await fetch('/jobs/' + jobId + '/history', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (hResp.ok) {
+                    this.modalHistory = await hResp.json();
+                }
+            } catch (e) {
+                this.modalError = e.message;
+            }
+            this.modalLoading = false;
+        },
+
+        closeModal() {
+            this.modalOpen = false;
+            this.modalJob = null;
+            this.modalHistory = [];
+            this.modalError = '';
+        },
+
+        statusLabel(s) {
+            const m = {unscheduled:'Uplanlagt', scheduled:'Planlagt', in_progress:'Under arbeid', completed:'Fullført', cancelled:'Kansellert'};
+            return m[s] || s;
+        },
+
+        async doAction(action) {
+            this.modalError = '';
+            const token = this.getToken();
+            const jobId = this.modalJob?.id;
+            if (!jobId) return;
+
+            let url = '/jobs/' + jobId + '/' + action;
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+                });
+                if (!resp.ok) {
+                    const d = await resp.json().catch(() => ({}));
+                    this.modalError = d.detail || 'Noe gikk galt';
+                    return;
+                }
+                this.reloadTable();
+
+                // Re-fetch enriched detail and history
+                const dResp = await fetch('/jobs/' + jobId + '/detail', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (dResp.ok) this.modalJob = await dResp.json();
+
+                const hResp = await fetch('/jobs/' + jobId + '/history', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (hResp.ok) this.modalHistory = await hResp.json();
+            } catch (e) {
+                this.modalError = e.message;
+            }
+        }
+    };
+}
+</script>
 {% endblock %}

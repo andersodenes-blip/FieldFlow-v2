@@ -14,8 +14,8 @@ from app.services.audit_service import AuditService
 # Valid status transitions
 VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.unscheduled: {JobStatus.scheduled, JobStatus.cancelled},
-    JobStatus.scheduled: {JobStatus.in_progress, JobStatus.cancelled},
-    JobStatus.in_progress: {JobStatus.completed, JobStatus.cancelled},
+    JobStatus.scheduled: {JobStatus.in_progress, JobStatus.unscheduled, JobStatus.cancelled},
+    JobStatus.in_progress: {JobStatus.completed, JobStatus.unscheduled, JobStatus.cancelled},
     JobStatus.completed: set(),
     JobStatus.cancelled: set(),
 }
@@ -53,13 +53,14 @@ class JobService:
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
+        search: str | None = None,
         page: int = 1,
         page_size: int = 20,
         sort_by: str = "created_at",
         sort_order: str = "asc",
     ) -> tuple[list[Job], int]:
         return await self.repo.get_all(
-            tenant_id, status=status, customer_id=customer_id,
+            tenant_id, status=status, customer_id=customer_id, search=search,
             page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
         )
 

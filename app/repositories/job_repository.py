@@ -25,6 +25,7 @@ class JobRepository:
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
+        search: str | None = None,
         page: int = 1,
         page_size: int = 20,
         sort_by: str = "created_at",
@@ -35,29 +36,42 @@ class JobRepository:
         )
         count_query = select(func.count(Job.id)).where(Job.tenant_id == tenant_id)
 
+        # Always join for search/sort on address
+        needs_join = bool(search) or sort_by == "address"
+        if needs_join or customer_id:
+            query = query.join(
+                ServiceContract, Job.service_contract_id == ServiceContract.id
+            ).join(Location, ServiceContract.location_id == Location.id)
+            count_query = count_query.join(
+                ServiceContract, Job.service_contract_id == ServiceContract.id
+            ).join(Location, ServiceContract.location_id == Location.id)
+
         if status:
             query = query.where(Job.status == JobStatus(status))
             count_query = count_query.where(Job.status == JobStatus(status))
         if customer_id:
-            query = (
-                query.join(ServiceContract, Job.service_contract_id == ServiceContract.id)
-                .join(Location, ServiceContract.location_id == Location.id)
-                .where(Location.customer_id == customer_id)
+            query = query.where(Location.customer_id == customer_id)
+            count_query = count_query.where(Location.customer_id == customer_id)
+        if search:
+            pattern = f"%{search}%"
+            query = query.where(
+                Location.address.ilike(pattern) | Job.external_id.ilike(pattern)
             )
-            count_query = (
-                count_query.join(ServiceContract, Job.service_contract_id == ServiceContract.id)
-                .join(Location, ServiceContract.location_id == Location.id)
-                .where(Location.customer_id == customer_id)
+            count_query = count_query.where(
+                Location.address.ilike(pattern) | Job.external_id.ilike(pattern)
             )
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 
-        order_col = getattr(Job, sort_by, Job.created_at)
+        if sort_by == "address":
+            order_col = Location.address
+        else:
+            order_col = getattr(Job, sort_by, Job.created_at)
         query = query.order_by(desc(order_col) if sort_order == "desc" else asc(order_col))
         query = query.offset((page - 1) * page_size).limit(page_size)
         result = await self.db.execute(query)
-        return list(result.scalars().all()), total
+        return list(result.scalars().unique().all()), total
 
     async def get_by_id(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> Job | None:
         result = await self.db.execute(

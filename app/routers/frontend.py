@@ -311,6 +311,8 @@ async def jobs_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
     status: str | None = Query(None),
+    region_id: str | None = Query(None),
+    search: str | None = Query(None),
 ):
     user = await _get_user_from_cookie(request, db)
     if not user:
@@ -318,18 +320,53 @@ async def jobs_page(
 
     from app.services.job_service import JobService
 
+    tid = user.tenant_id
+
+    # Load regions
+    result = await db.execute(
+        select(Region).where(Region.tenant_id == tid).order_by(Region.name)
+    )
+    regions = list(result.scalars().all())
+    selected_region = None
+    if regions:
+        if region_id:
+            selected_region = next((r for r in regions if str(r.id) == region_id), regions[0])
+        else:
+            selected_region = regions[0]
+
+    # Job stats (tenant-wide)
+    status_counts = {}
+    for s in [JobStatus.unscheduled, JobStatus.scheduled, JobStatus.in_progress, JobStatus.completed, JobStatus.cancelled]:
+        count = (await db.execute(
+            select(func.count(Job.id)).where(Job.tenant_id == tid, Job.status == s)
+        )).scalar() or 0
+        status_counts[s.value] = count
+
     service = JobService(db)
-    jobs, total = await service.list_jobs(user.tenant_id, status=status, page=1, page_size=20)
+    jobs, total = await service.list_jobs(
+        tid, status=status, search=search, page=1, page_size=20
+    )
 
     return templates.TemplateResponse("jobs/list.html", {
         "request": request,
         "user": user,
         "active_page": "jobs",
+        "regions": regions,
+        "selected_region": selected_region,
+        "stats": {
+            "total": sum(status_counts.values()),
+            "completed": status_counts["completed"],
+            "unscheduled": status_counts["unscheduled"],
+        },
         "jobs": jobs,
         "total": total,
         "page": 1,
         "page_size": 20,
         "status_filter": status or "",
+        "search": search or "",
+        "sort_by": "created_at",
+        "sort_order": "asc",
+        "region_id": str(selected_region.id) if selected_region else "",
     })
 
 
@@ -338,6 +375,10 @@ async def jobs_table(
     request: Request,
     db: AsyncSession = Depends(get_db),
     status: str | None = Query(None),
+    search: str | None = Query(None),
+    region_id: str | None = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("asc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -349,7 +390,8 @@ async def jobs_table(
 
     service = JobService(db)
     jobs, total = await service.list_jobs(
-        user.tenant_id, status=status, page=page, page_size=page_size
+        user.tenant_id, status=status, search=search,
+        page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
     )
 
     return templates.TemplateResponse("jobs/_table.html", {
@@ -360,6 +402,10 @@ async def jobs_table(
         "page": page,
         "page_size": page_size,
         "status_filter": status or "",
+        "search": search or "",
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+        "region_id": region_id or "",
     })
 
 
