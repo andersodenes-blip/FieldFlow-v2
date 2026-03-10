@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.models import Base
+from app.models.organization import Organization
 from app.models.region import Region
 from app.models.technician import Technician
 from app.models.tenant import Tenant
@@ -55,6 +56,15 @@ async def seed():
 
         # Set RLS context so tenant-scoped inserts pass RLS policies
         await db.execute(text(f"SET app.current_tenant = '{tenant_id}'"))
+
+        # Create organization (Auth0 org → tenant mapping)
+        org = Organization(
+            id=uuid.uuid4(),
+            auth0_org_id="org_hedengren_dev",
+            name="Hedengren Norge",
+            tenant_id=tenant_id,
+        )
+        db.add(org)
 
         # Create admin user
         user = User(
