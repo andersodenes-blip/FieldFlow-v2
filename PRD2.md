@@ -278,18 +278,18 @@ HTMX-basert kundeliste med søk, paginering og opprett/rediger-skjema.
 
 | ID | Tittel | Prioritet | Avhenger av | Status |
 |----|--------|-----------|-------------|--------|
-| US-007 | CRUD for regioner | high | — | TODO |
-| US-008 | CRUD for teknikere | high | US-007 | TODO |
-| US-009 | CRUD for kunder | high | — | TODO |
-| US-010 | CRUD for lokasjoner | high | US-009 | TODO |
-| US-011 | CRUD for serviceavtaler | high | US-010 | TODO |
-| US-012 | CRUD for jobber | high | US-011 | TODO |
-| US-013 | Generering av jobber fra avtaler | medium | US-012 | TODO |
-| US-014 | Paginering og filtrering (felles) | medium | US-007–012 | TODO |
-| US-015 | Bulk-import kunder/lokasjoner | medium | US-010 | TODO |
-| US-016 | Audit-logging | medium | US-007–012 | TODO |
-| US-017 | Frontend — layout og navigasjon | high | US-007–009 | TODO |
-| US-018 | Frontend — kundeliste og skjema | medium | US-017, US-009 | TODO |
+| US-007 | CRUD for regioner | high | — | DONE |
+| US-008 | CRUD for teknikere | high | US-007 | DONE |
+| US-009 | CRUD for kunder | high | — | DONE |
+| US-010 | CRUD for lokasjoner | high | US-009 | DONE |
+| US-011 | CRUD for serviceavtaler | high | US-010 | DONE |
+| US-012 | CRUD for jobber | high | US-011 | DONE |
+| US-013 | Generering av jobber fra avtaler | medium | US-012 | DONE |
+| US-014 | Paginering og filtrering (felles) | medium | US-007–012 | DONE |
+| US-015 | Bulk-import kunder/lokasjoner | medium | US-010 | DONE |
+| US-016 | Audit-logging | medium | US-007–012 | DONE |
+| US-017 | Frontend — layout og navigasjon | high | US-007–009 | DONE |
+| US-018 | Frontend — kundeliste og skjema | medium | US-017, US-009 | DONE |
 
 ---
 
