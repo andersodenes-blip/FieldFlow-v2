@@ -33,7 +33,7 @@
     <!-- Create/Edit modal -->
     <div x-show="showForm" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
         <div class="flex min-h-full items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showForm = false"></div>
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="showForm = false; formError = ''"></div>
             <div class="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
                 <h3 class="text-lg font-medium text-gray-900" x-text="editId ? 'Rediger kunde' : 'Ny kunde'"></h3>
 
@@ -80,7 +80,7 @@
                                class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm">
                     </div>
                     <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" @click="showForm = false"
+                        <button type="button" @click="showForm = false; formError = ''"
                                 class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                             Avbryt
                         </button>
