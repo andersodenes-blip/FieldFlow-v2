@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.job import Job, JobStatus
 from app.models.location import Location
+from app.models.region import Region
 from app.models.service_contract import ServiceContract
 
 
@@ -25,6 +26,7 @@ class JobRepository:
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
+        region_id: uuid.UUID | None = None,
         search: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -36,9 +38,9 @@ class JobRepository:
         )
         count_query = select(func.count(Job.id)).where(Job.tenant_id == tenant_id)
 
-        # Always join for search/sort on address
-        needs_join = bool(search) or sort_by == "address"
-        if needs_join or customer_id:
+        # Always join for search/sort on address or region/customer filter
+        needs_join = bool(search) or sort_by == "address" or customer_id or region_id
+        if needs_join:
             query = query.join(
                 ServiceContract, Job.service_contract_id == ServiceContract.id
             ).join(Location, ServiceContract.location_id == Location.id)
@@ -52,6 +54,11 @@ class JobRepository:
         if customer_id:
             query = query.where(Location.customer_id == customer_id)
             count_query = count_query.where(Location.customer_id == customer_id)
+        if region_id:
+            # Filter by region: match location.city to region.name
+            region_subquery = select(Region.name).where(Region.id == region_id).scalar_subquery()
+            query = query.where(Location.city == region_subquery)
+            count_query = count_query.where(Location.city == region_subquery)
         if search:
             pattern = f"%{search}%"
             query = query.where(

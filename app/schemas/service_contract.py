@@ -9,7 +9,7 @@ class ServiceContractCreate(BaseModel):
     location_id: uuid.UUID
     service_type: str
     interval_months: int
-    next_due_date: date
+    next_due_date: date | None = None
     sla_hours: int | None = None
 
 

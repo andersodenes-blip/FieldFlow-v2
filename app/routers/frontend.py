@@ -343,8 +343,9 @@ async def jobs_page(
         status_counts[s.value] = count
 
     service = JobService(db)
+    rid = uuid.UUID(region_id) if region_id else (selected_region.id if selected_region else None)
     jobs, total = await service.list_jobs(
-        tid, status=status, search=search, page=1, page_size=20
+        tid, status=status, search=search, region_id=rid, page=1, page_size=20
     )
 
     return templates.TemplateResponse("jobs/list.html", {
@@ -388,9 +389,10 @@ async def jobs_table(
 
     from app.services.job_service import JobService
 
+    rid = uuid.UUID(region_id) if region_id else None
     service = JobService(db)
     jobs, total = await service.list_jobs(
-        user.tenant_id, status=status, search=search,
+        user.tenant_id, status=status, search=search, region_id=rid,
         page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
     )
 

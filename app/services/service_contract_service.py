@@ -1,5 +1,7 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
+import calendar
 import uuid
+from datetime import date
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,15 @@ from app.repositories.location_repository import LocationRepository
 from app.repositories.service_contract_repository import ServiceContractRepository
 from app.schemas.service_contract import ServiceContractCreate, ServiceContractUpdate
 from app.services.audit_service import AuditService
+
+
+def _add_months(d: date, months: int) -> date:
+    """Add months to a date, clamping to end of month if needed."""
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
 
 
 class ServiceContractService:
@@ -28,12 +39,15 @@ class ServiceContractService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Location not found",
             )
+        next_due = data.next_due_date
+        if next_due is None:
+            next_due = _add_months(date.today(), data.interval_months)
         contract = ServiceContract(
             tenant_id=tenant_id,
             location_id=data.location_id,
             service_type=data.service_type,
             interval_months=data.interval_months,
-            next_due_date=data.next_due_date,
+            next_due_date=next_due,
             sla_hours=data.sla_hours,
         )
         contract = await self.repo.create(contract)

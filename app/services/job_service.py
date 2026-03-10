@@ -53,6 +53,7 @@ class JobService:
         tenant_id: uuid.UUID,
         status: str | None = None,
         customer_id: uuid.UUID | None = None,
+        region_id: uuid.UUID | None = None,
         search: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -60,7 +61,8 @@ class JobService:
         sort_order: str = "asc",
     ) -> tuple[list[Job], int]:
         return await self.repo.get_all(
-            tenant_id, status=status, customer_id=customer_id, search=search,
+            tenant_id, status=status, customer_id=customer_id,
+            region_id=region_id, search=search,
             page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
         )
 

@@ -60,6 +60,7 @@ async def list_jobs(
     current_user: Annotated[User, Depends(get_current_user)],
     status: str | None = Query(None),
     customer_id: uuid.UUID | None = Query(None),
+    region_id: uuid.UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort_by: str = Query("created_at"),
@@ -68,6 +69,7 @@ async def list_jobs(
     service = JobService(db, user_id=current_user.id)
     items, total = await service.list_jobs(
         current_user.tenant_id, status=status, customer_id=customer_id,
+        region_id=region_id,
         page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order,
     )
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
