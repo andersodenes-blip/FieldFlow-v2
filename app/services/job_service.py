@@ -14,7 +14,7 @@ from app.services.audit_service import AuditService
 # Valid status transitions
 VALID_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.unscheduled: {JobStatus.scheduled, JobStatus.cancelled},
-    JobStatus.scheduled: {JobStatus.in_progress, JobStatus.unscheduled, JobStatus.cancelled},
+    JobStatus.scheduled: {JobStatus.in_progress, JobStatus.completed, JobStatus.unscheduled, JobStatus.cancelled},
     JobStatus.in_progress: {JobStatus.completed, JobStatus.unscheduled, JobStatus.cancelled},
     JobStatus.completed: set(),
     JobStatus.cancelled: set(),

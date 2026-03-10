@@ -3,6 +3,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db, require_role
@@ -299,3 +300,130 @@ async def cancel_job(
     return await service.update_status(
         job_id, current_user.tenant_id, JobStatusUpdate(status="cancelled")
     )
+
+
+class DeferRequest(BaseModel):
+    reason: str
+
+
+class RescheduleRequest(BaseModel):
+    new_date: str  # ISO date string
+
+
+@router.post(
+    "/{job_id}/defer",
+    dependencies=[require_role("org:admin")],
+)
+async def defer_job(
+    job_id: uuid.UUID,
+    data: DeferRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Defer a job: set status=unscheduled, delete scheduled_visits and route_visits."""
+    from sqlalchemy import delete, select
+
+    from app.models.route_visit import RouteVisit
+    from app.models.scheduled_visit import ScheduledVisit
+
+    tid = current_user.tenant_id
+
+    # Find all scheduled_visits for this job
+    sv_result = await db.execute(
+        select(ScheduledVisit.id).where(
+            ScheduledVisit.job_id == job_id,
+            ScheduledVisit.tenant_id == tid,
+        )
+    )
+    sv_ids = [row[0] for row in sv_result.all()]
+
+    # Delete route_visits that reference these scheduled_visits
+    if sv_ids:
+        await db.execute(
+            delete(RouteVisit).where(RouteVisit.scheduled_visit_id.in_(sv_ids))
+        )
+        await db.execute(
+            delete(ScheduledVisit).where(ScheduledVisit.id.in_(sv_ids))
+        )
+
+    # Set job to unscheduled
+    service = JobService(db, user_id=current_user.id)
+    job = await service.update_status(
+        job_id, tid, JobStatusUpdate(status="unscheduled")
+    )
+
+    # Log audit with reason
+    from app.services.audit_service import AuditService
+    audit = AuditService(db)
+    await audit.log(tid, current_user.id, "update", "job", str(job_id), {
+        "action": "defer", "reason": data.reason,
+    })
+
+    await db.commit()
+    return {"ok": True, "reason": data.reason}
+
+
+@router.post(
+    "/{job_id}/reschedule",
+    dependencies=[require_role("org:admin")],
+)
+async def reschedule_job(
+    job_id: uuid.UUID,
+    data: RescheduleRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Reschedule a job: update the scheduled_visit date."""
+    from datetime import date as date_type
+
+    from sqlalchemy import select
+
+    from app.models.scheduled_visit import ScheduledVisit
+
+    tid = current_user.tenant_id
+    new_date = date_type.fromisoformat(data.new_date)
+
+    # Update latest scheduled_visit
+    sv_result = await db.execute(
+        select(ScheduledVisit)
+        .where(
+            ScheduledVisit.job_id == job_id,
+            ScheduledVisit.tenant_id == tid,
+        )
+        .order_by(ScheduledVisit.created_at.desc())
+        .limit(1)
+    )
+    sv = sv_result.scalar_one_or_none()
+    if not sv:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Ingen planlagt visitt funnet")
+
+    old_date = sv.scheduled_date
+    sv.scheduled_date = new_date
+
+    # Also update the route date if it exists
+    from app.models.route import Route
+    from app.models.route_visit import RouteVisit
+
+    rv_result = await db.execute(
+        select(RouteVisit).where(RouteVisit.scheduled_visit_id == sv.id)
+    )
+    rv = rv_result.scalar_one_or_none()
+    if rv:
+        route_result = await db.execute(
+            select(Route).where(Route.id == rv.route_id)
+        )
+        route = route_result.scalar_one_or_none()
+        if route:
+            route.route_date = new_date
+
+    from app.services.audit_service import AuditService
+    audit = AuditService(db)
+    await audit.log(tid, current_user.id, "update", "job", str(job_id), {
+        "action": "reschedule",
+        "old_date": old_date.isoformat(),
+        "new_date": new_date.isoformat(),
+    })
+
+    await db.commit()
+    return {"ok": True, "old_date": old_date.isoformat(), "new_date": new_date.isoformat()}
