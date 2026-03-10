@@ -219,7 +219,11 @@ async def get_job_history(
     ]
 
 
-@router.post("/{job_id}/complete", response_model=JobResponse)
+@router.post(
+    "/{job_id}/complete",
+    response_model=JobResponse,
+    dependencies=[require_role("org:admin")],
+)
 async def complete_job(
     job_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -231,7 +235,11 @@ async def complete_job(
     )
 
 
-@router.post("/{job_id}/schedule", response_model=JobResponse)
+@router.post(
+    "/{job_id}/schedule",
+    response_model=JobResponse,
+    dependencies=[require_role("org:admin")],
+)
 async def schedule_job(
     job_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -243,7 +251,11 @@ async def schedule_job(
     )
 
 
-@router.post("/{job_id}/start", response_model=JobResponse)
+@router.post(
+    "/{job_id}/start",
+    response_model=JobResponse,
+    dependencies=[require_role("org:admin")],
+)
 async def start_job(
     job_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -255,7 +267,11 @@ async def start_job(
     )
 
 
-@router.post("/{job_id}/unschedule", response_model=JobResponse)
+@router.post(
+    "/{job_id}/unschedule",
+    response_model=JobResponse,
+    dependencies=[require_role("org:admin")],
+)
 async def unschedule_job(
     job_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -267,7 +283,11 @@ async def unschedule_job(
     )
 
 
-@router.post("/{job_id}/cancel", response_model=JobResponse)
+@router.post(
+    "/{job_id}/cancel",
+    response_model=JobResponse,
+    dependencies=[require_role("org:admin")],
+)
 async def cancel_job(
     job_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
