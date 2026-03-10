@@ -13,6 +13,7 @@ from app.models.technician import Technician
 from app.services.auth_service import create_access_token
 from app.services.route_planning_service import (
     JobWithCoords,
+    get_norwegian_holidays,
     haversine_km,
     nearest_neighbor_order,
 )
@@ -45,6 +46,28 @@ def test_nearest_neighbor_basic():
 
 def test_nearest_neighbor_empty():
     assert nearest_neighbor_order([], 59.91, 10.75) == []
+
+
+def test_norwegian_holidays_2027():
+    holidays = get_norwegian_holidays(2027)
+    # Fixed holidays
+    assert date(2027, 1, 1) in holidays      # Nyttarsdag
+    assert date(2027, 5, 1) in holidays      # Arbeidernes dag
+    assert date(2027, 5, 17) in holidays     # Grunnlovsdag
+    assert date(2027, 12, 25) in holidays    # 1. juledag
+    assert date(2027, 12, 26) in holidays    # 2. juledag
+    # Easter 2027 is March 28
+    assert date(2027, 3, 25) in holidays     # Skjaertorsdag
+    assert date(2027, 3, 26) in holidays     # Langfredag
+    assert date(2027, 3, 28) in holidays     # 1. paskedag
+    assert date(2027, 3, 29) in holidays     # 2. paskedag
+    # Ascension = Easter + 39 = May 6
+    assert date(2027, 5, 6) in holidays      # Kristi himmelfartsdag
+    # Whit Sunday = Easter + 49 = May 16
+    assert date(2027, 5, 16) in holidays     # 1. pinsedag
+    assert date(2027, 5, 17) in holidays     # 2. pinsedag (= Grunnlovsdag)
+    # 2. pinsedag (May 17) overlaps with Grunnlovsdag, so 11 unique dates
+    assert len(holidays) == 11
 
 
 # --- Integration tests via API ---

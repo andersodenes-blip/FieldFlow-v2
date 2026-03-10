@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
-"""Plan routes for all regions for 2027."""
+"""Plan routes for all regions for 2027 and verify capacity limits."""
 import asyncio
 import os
 import sys
@@ -36,6 +36,22 @@ async def main():
     asyncpg_url = await get_asyncpg_url()
     print("Kobler til database...")
     conn = await asyncpg.connect(asyncpg_url, statement_cache_size=0)
+
+    # Run migration: add start_date column if not exists
+    try:
+        await conn.execute("""
+            ALTER TABLE technicians ADD COLUMN IF NOT EXISTS start_date DATE
+        """)
+        print("  start_date-kolonne OK")
+    except Exception as e:
+        print(f"  start_date-kolonne: {e}")
+
+    # Set Truls Iversen start_date to 2027-05-01
+    truls_result = await conn.execute("""
+        UPDATE technicians SET start_date = '2027-05-01'
+        WHERE name = 'Truls Iversen' AND tenant_id = $1
+    """, TENANT_ID)
+    print(f"  Truls Iversen start_date satt: {truls_result}")
 
     # Get region IDs
     rows = await conn.fetch(
@@ -87,13 +103,13 @@ async def main():
 
     summary = []
     print(f"\n{'='*60}")
-    print(f"RUTEPLANLEGGING {START_DATE} → {END_DATE}")
+    print(f"RUTEPLANLEGGING {START_DATE} -> {END_DATE}")
     print(f"{'='*60}")
 
     for name in REGIONS:
         region_id = region_map.get(name)
         if not region_id:
-            print(f"\n{name}: Region ikke funnet — hopper over")
+            print(f"\n{name}: Region ikke funnet -- hopper over")
             continue
 
         print(f"\n--- {name} ---")
@@ -104,7 +120,7 @@ async def main():
             )
 
         print(f"  Ruter opprettet:    {result['routes_created']}")
-        print(f"  Besøk fordelt:      {result['visits_assigned']}")
+        print(f"  Besok fordelt:      {result['visits_assigned']}")
         print(f"  Uten koordinater:   {result['jobs_without_coords']}")
         if result['capacity_warnings']:
             print(f"  Kapasitetsvarsler:  {len(result['capacity_warnings'])}")
@@ -123,13 +139,13 @@ async def main():
 
     await engine.dispose()
 
-    # Post-check: remaining unscheduled
+    # Post-check: verify 7.5h limit and remaining unscheduled
     conn = await asyncpg.connect(asyncpg_url, statement_cache_size=0)
     try:
         print(f"\n{'='*60}")
         print("OPPSUMMERING")
         print(f"{'='*60}")
-        print(f"{'Region':15s} | {'Ruter':>6s} | {'Besøk':>6s} | {'Uten coords':>11s} | {'Varsler':>7s}")
+        print(f"{'Region':15s} | {'Ruter':>6s} | {'Besok':>6s} | {'Uten coords':>11s} | {'Varsler':>7s}")
         print("-" * 60)
         total_routes = 0
         total_visits = 0
@@ -142,8 +158,37 @@ async def main():
         print("-" * 60)
         print(f"{'TOTALT':15s} | {total_routes:6d} | {total_visits:6d} | {total_no_coords:11d} |")
 
+        # ── VERIFY 7.5h LIMIT ───────────────────────────────────────────
+        print(f"\n=== Verifisering: 7.5t-grensen ===")
+        overloaded = await conn.fetch("""
+            SELECT r.route_date, t.name as tech, reg.name as region,
+                   COUNT(rv.id) as visits,
+                   SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
+                   SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 as drive_hours
+            FROM routes r
+            JOIN technicians t ON r.technician_id = t.id
+            JOIN regions reg ON r.region_id = reg.id
+            LEFT JOIN route_visits rv ON rv.route_id = r.id
+            LEFT JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
+            LEFT JOIN jobs j ON sv.job_id = j.id
+            LEFT JOIN service_contracts sc ON j.service_contract_id = sc.id
+            WHERE r.tenant_id = $1
+            GROUP BY r.route_date, t.name, reg.name
+            HAVING SUM(COALESCE(sc.sla_hours, 1.0)) + SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 > 7.5
+            ORDER BY SUM(COALESCE(sc.sla_hours, 1.0)) + SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 DESC
+            LIMIT 20
+        """, TENANT_ID)
+
+        if overloaded:
+            print(f"  FEIL: {len(overloaded)} dager overskrider 7.5t!")
+            for r in overloaded[:10]:
+                total_h = float(r['work_hours'] or 0) + float(r['drive_hours'] or 0)
+                print(f"    {r['region']:12s} | {r['route_date']} | {r['tech']:25s} | {r['visits']} besok | {float(r['work_hours'] or 0):.1f}t arbeid + {float(r['drive_hours'] or 0):.1f}t kjoring = {total_h:.1f}t")
+        else:
+            print("  OK: Ingen dager overskrider 7.5t")
+
         # Remaining unscheduled per region
-        print(f"\n=== Gjenstående uplanlagte jobber ===")
+        print(f"\n=== Gjenstaaende uplanlagte jobber ===")
         total_remaining = 0
         for name in REGIONS:
             remaining = await conn.fetchval("""
@@ -157,22 +202,37 @@ async def main():
             total_remaining += remaining
         print(f"  {'TOTALT':15s}: {total_remaining} jobber")
 
+        # Truls Iversen check
+        print(f"\n=== Truls Iversen-sjekk (skal ikke ha jobber for 2027-05-01) ===")
+        truls_early = await conn.fetchval("""
+            SELECT COUNT(*) FROM routes r
+            JOIN technicians t ON r.technician_id = t.id
+            WHERE t.name = 'Truls Iversen' AND r.route_date < '2027-05-01' AND r.tenant_id = $1
+        """, TENANT_ID)
+        print(f"  Ruter for mai: {truls_early} (skal vaere 0)")
+
         # Route distribution sample
-        print(f"\n=== Eksempel: første 10 ruter ===")
+        print(f"\n=== Eksempel: forste 10 ruter ===")
         routes = await conn.fetch("""
             SELECT r.route_date, t.name as tech, reg.name as region,
-                   COUNT(rv.id) as visits
+                   COUNT(rv.id) as visits,
+                   SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
+                   SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 as drive_hours
             FROM routes r
             JOIN technicians t ON r.technician_id = t.id
             JOIN regions reg ON r.region_id = reg.id
             LEFT JOIN route_visits rv ON rv.route_id = r.id
+            LEFT JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
+            LEFT JOIN jobs j ON sv.job_id = j.id
+            LEFT JOIN service_contracts sc ON j.service_contract_id = sc.id
             WHERE r.tenant_id = $1
             GROUP BY r.route_date, t.name, reg.name
             ORDER BY reg.name, r.route_date
             LIMIT 10
         """, TENANT_ID)
         for r in routes:
-            print(f"  {r['region']:12s} | {r['route_date']} | {r['tech']:25s} | {r['visits']} besøk")
+            total_h = float(r['work_hours'] or 0) + float(r['drive_hours'] or 0)
+            print(f"  {r['region']:12s} | {r['route_date']} | {r['tech']:25s} | {r['visits']} besok | {total_h:.1f}t total")
 
     finally:
         await conn.close()
