@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}Ruteplanlegging — FieldFlow{% endblock %}
+
+{% block content %}
+<div x-data="routeDashboard()" x-init="init()">
+
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Ruteplanlegging</h1>
+    <p class="mt-1 text-sm text-gray-500">Planlegg og vis ruter for teknikere</p>
+  </div>
+
+  <!-- Controls bar -->
+  <div class="bg-white rounded-lg shadow p-4 mb-6">
+    <div class="flex flex-wrap items-end gap-4">
+      <!-- Region selector -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Region</label>
+        <select x-model="regionId" @change="loadRoutes()"
+                class="block w-48 rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+          {% for region in regions %}
+          <option value="{{ region.id }}" {% if selected_region and region.id == selected_region.id %}selected{% endif %}>
+            {{ region.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Date range -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Fra</label>
+        <input type="date" x-model="startDate"
+               class="block rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Til</label>
+        <input type="date" x-model="endDate"
+               class="block rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+      </div>
+
+      <!-- Plan button -->
+      <div>
+        <button @click="runPlanning()" :disabled="planning"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+          <template x-if="planning">
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </template>
+          <span x-text="planning ? 'Planlegger...' : 'Kjor planlegging'"></span>
+        </button>
+      </div>
+
+      <!-- Load existing -->
+      <div>
+        <button @click="loadRoutes()"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
+          Vis ruter
+        </button>
+      </div>
+    </div>
+
+    <!-- Plan result -->
+    <template x-if="planResult">
+      <div class="mt-4 p-3 rounded-md" :class="planResult.routes_created > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'">
+        <div class="flex items-center gap-4 text-sm">
+          <span><strong x-text="planResult.routes_created"></strong> ruter opprettet</span>
+          <span><strong x-text="planResult.visits_assigned"></strong> besok fordelt</span>
+          <template x-if="planResult.jobs_without_coords > 0">
+            <span class="text-orange-600"><strong x-text="planResult.jobs_without_coords"></strong> uten koordinater</span>
+          </template>
+          <template x-if="planResult.capacity_warnings.length > 0">
+            <span class="text-orange-600"><strong x-text="planResult.capacity_warnings.length"></strong> kapasitetsvarsler</span>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Main content: Calendar + Map side by side -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Calendar / route list (2/3 width) -->
+    <div class="lg:col-span-2">
+      <!-- Technician tabs -->
+      <div class="bg-white rounded-lg shadow">
+        <div class="border-b border-gray-200 px-4">
+          <nav class="flex space-x-4 overflow-x-auto py-2" aria-label="Teknikere">
+            <template x-for="tech in technicians" :key="tech.id">
+              <button @click="selectedTechId = tech.id; filterByTech()"
+                      :class="selectedTechId === tech.id ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                      class="whitespace-nowrap border-b-2 py-2 px-3 text-sm font-medium">
+                <span x-text="tech.name"></span>
+              </button>
+            </template>
+            <button @click="selectedTechId = null; filterByTech()"
+                    :class="!selectedTechId ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                    class="whitespace-nowrap border-b-2 py-2 px-3 text-sm font-medium">
+              Alle
+            </button>
+          </nav>
+        </div>
+
+        <!-- Route list grouped by date -->
+        <div class="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+          <template x-if="filteredRoutes.length === 0">
+            <div class="p-8 text-center text-gray-400 text-sm">
+              <p>Ingen ruter funnet. Velg region og klikk "Vis ruter" eller kjor planlegging.</p>
+            </div>
+          </template>
+          <template x-for="route in filteredRoutes" :key="route.id">
+            <div @click="selectRoute(route.id)"
+                 :class="selectedRouteId === route.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'"
+                 class="px-4 py-3 cursor-pointer transition-colors">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-sm font-medium text-gray-900" x-text="route.route_date"></span>
+                  <span class="ml-2 text-sm text-gray-500" x-text="route.technician_name"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="route.status === 'published' ? 'bg-green-100 text-green-800' : route.status === 'completed' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                        x-text="route.status === 'draft' ? 'Utkast' : route.status === 'published' ? 'Publisert' : 'Fullfort'"></span>
+                  <span class="text-sm text-gray-500"><span x-text="route.visit_count"></span> besok</span>
+                  <span class="text-sm text-gray-500"><span x-text="route.total_hours.toFixed(1)"></span>t</span>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Pagination -->
+        <template x-if="totalRoutes > pageSize">
+          <div class="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
+            <span class="text-sm text-gray-500">
+              Viser <span x-text="((currentPage-1)*pageSize)+1"></span>-<span x-text="Math.min(currentPage*pageSize, totalRoutes)"></span> av <span x-text="totalRoutes"></span>
+            </span>
+            <div class="flex gap-2">
+              <button @click="currentPage--; loadRoutes()" :disabled="currentPage <= 1"
+                      class="px-3 py-1 border rounded text-sm disabled:opacity-50">Forrige</button>
+              <button @click="currentPage++; loadRoutes()" :disabled="currentPage * pageSize >= totalRoutes"
+                      class="px-3 py-1 border rounded text-sm disabled:opacity-50">Neste</button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Map + route detail (1/3 width) -->
+    <div class="lg:col-span-1 space-y-4">
+      <!-- Map -->
+      <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200">
+          <h3 class="text-sm font-medium text-gray-900">Kart</h3>
+        </div>
+        <div id="route-map" style="height: 350px; background: #e5e7eb;"></div>
+      </div>
+
+      <!-- Visit list for selected route -->
+      <template x-if="selectedRoute">
+        <div class="bg-white rounded-lg shadow">
+          <div class="px-4 py-3 border-b border-gray-200">
+            <h3 class="text-sm font-medium text-gray-900">
+              <span x-text="selectedRoute.technician_name"></span> &mdash; <span x-text="selectedRoute.route_date"></span>
+            </h3>
+            <p class="text-xs text-gray-500 mt-1">
+              <span x-text="selectedRoute.visits.length"></span> besok &middot;
+              <span x-text="selectedRoute.total_hours.toFixed(1)"></span>t &middot;
+              <span x-text="selectedRoute.total_km.toFixed(1)"></span> km
+            </p>
+          </div>
+          <ul class="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+            <template x-for="visit in selectedRoute.visits" :key="visit.id">
+              <li class="px-4 py-2">
+                <div class="flex items-start gap-2">
+                  <span class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-indigo-600 text-white text-xs font-bold flex-shrink-0 mt-0.5"
+                        x-text="visit.sequence_order"></span>
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate" x-text="visit.job_title"></p>
+                    <p class="text-xs text-gray-500" x-text="visit.location_address"></p>
+                    <p class="text-xs text-gray-400">
+                      <span x-text="visit.estimated_work_hours.toFixed(1)"></span>t arbeid
+                      <template x-if="visit.estimated_drive_minutes">
+                        <span> &middot; <span x-text="visit.estimated_drive_minutes"></span> min kjoring</span>
+                      </template>
+                    </p>
+                  </div>
+                </div>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet CSS/JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+function routeDashboard() {
+  return {
+    regionId: '{{ selected_region.id if selected_region else "" }}',
+    startDate: '{{ start_date }}',
+    endDate: '{{ end_date }}',
+    planning: false,
+    planResult: null,
+    routes: [],
+    filteredRoutes: [],
+    totalRoutes: 0,
+    currentPage: 1,
+    pageSize: 100,
+    selectedTechId: null,
+    selectedRouteId: null,
+    selectedRoute: null,
+    technicians: [],
+    map: null,
+    routeLayer: null,
+
+    getToken() {
+      const c = document.cookie.split('; ').find(c => c.startsWith('access_token='));
+      return c ? c.split('=')[1] : '';
+    },
+
+    init() {
+      this.map = L.map('route-map').setView([59.91, 10.75], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(this.map);
+      this.routeLayer = L.layerGroup().addTo(this.map);
+
+      if (this.regionId) {
+        this.loadRoutes();
+      }
+    },
+
+    async apiCall(method, url, body) {
+      const opts = {
+        method,
+        headers: {
+          'Authorization': 'Bearer ' + this.getToken(),
+          'Content-Type': 'application/json',
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const resp = await fetch(url, opts);
+      if (resp.status === 401) { window.location.href = '/app/login'; return null; }
+      return resp;
+    },
+
+    async runPlanning() {
+      if (!this.regionId) return;
+      this.planning = true;
+      this.planResult = null;
+      try {
+        const resp = await this.apiCall('POST', '/routes/plan', {
+          region_id: this.regionId,
+          start_date: this.startDate,
+          end_date: this.endDate,
+        });
+        if (resp && resp.ok) {
+          this.planResult = await resp.json();
+          await this.loadRoutes();
+        } else if (resp) {
+          const err = await resp.text();
+          alert('Planlegging feilet: ' + err);
+        }
+      } finally {
+        this.planning = false;
+      }
+    },
+
+    async loadRoutes() {
+      if (!this.regionId) return;
+      const params = new URLSearchParams({
+        region_id: this.regionId,
+        page: this.currentPage,
+        page_size: this.pageSize,
+      });
+      const resp = await this.apiCall('GET', '/routes?' + params.toString());
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        this.routes = data.items;
+        this.totalRoutes = data.total;
+        this.extractTechnicians();
+        this.filterByTech();
+        this.selectedRoute = null;
+        this.selectedRouteId = null;
+        this.routeLayer.clearLayers();
+      }
+    },
+
+    extractTechnicians() {
+      const seen = {};
+      this.technicians = [];
+      for (const r of this.routes) {
+        if (!seen[r.technician_id]) {
+          seen[r.technician_id] = true;
+          this.technicians.push({ id: r.technician_id, name: r.technician_name });
+        }
+      }
+      this.technicians.sort((a, b) => a.name.localeCompare(b.name));
+    },
+
+    filterByTech() {
+      if (this.selectedTechId) {
+        this.filteredRoutes = this.routes.filter(r => r.technician_id === this.selectedTechId);
+      } else {
+        this.filteredRoutes = this.routes;
+      }
+    },
+
+    async selectRoute(routeId) {
+      this.selectedRouteId = routeId;
+      const resp = await this.apiCall('GET', '/routes/' + routeId);
+      if (resp && resp.ok) {
+        this.selectedRoute = await resp.json();
+        this.drawRoute();
+      }
+    },
+
+    drawRoute() {
+      this.routeLayer.clearLayers();
+      if (!this.selectedRoute || !this.selectedRoute.visits.length) return;
+
+      const coords = [];
+      const colors = ['#4f46e5', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0891b2'];
+
+      for (const visit of this.selectedRoute.visits) {
+        if (visit.latitude && visit.longitude) {
+          const latlng = [visit.latitude, visit.longitude];
+          coords.push(latlng);
+
+          const marker = L.circleMarker(latlng, {
+            radius: 8,
+            fillColor: colors[(visit.sequence_order - 1) % colors.length],
+            color: '#fff',
+            weight: 2,
+            fillOpacity: 0.9,
+          });
+          marker.bindPopup(
+            '<strong>' + visit.sequence_order + '. ' + visit.job_title + '</strong><br>' +
+            visit.location_address + '<br>' +
+            visit.estimated_work_hours.toFixed(1) + 't arbeid'
+          );
+          this.routeLayer.addLayer(marker);
+        }
+      }
+
+      if (coords.length > 1) {
+        const polyline = L.polyline(coords, { color: '#4f46e5', weight: 3, opacity: 0.6, dashArray: '8, 8' });
+        this.routeLayer.addLayer(polyline);
+      }
+
+      if (coords.length > 0) {
+        this.map.fitBounds(coords, { padding: [30, 30] });
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

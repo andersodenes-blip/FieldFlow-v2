@@ -411,6 +411,44 @@ async def jobs_table(
     })
 
 
+# ── Routes ──────────────────────────────────────────────────────────────
+
+
+@router.get("/routes", response_class=HTMLResponse)
+async def routes_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    region_id: str | None = Query(None),
+):
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/app/login")
+
+    tid = user.tenant_id
+
+    # Load regions
+    result = await db.execute(
+        select(Region).where(Region.tenant_id == tid).order_by(Region.name)
+    )
+    regions = list(result.scalars().all())
+    selected_region = None
+    if regions:
+        if region_id:
+            selected_region = next((r for r in regions if str(r.id) == region_id), regions[0])
+        else:
+            selected_region = regions[0]
+
+    return templates.TemplateResponse("routes/dashboard.html", {
+        "request": request,
+        "user": user,
+        "active_page": "routes",
+        "regions": regions,
+        "selected_region": selected_region,
+        "start_date": "2027-01-01",
+        "end_date": "2027-12-31",
+    })
+
+
 @router.get("/jobs/{job_id}", response_class=HTMLResponse)
 async def job_detail(request: Request, job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     user = await _get_user_from_cookie(request, db)
