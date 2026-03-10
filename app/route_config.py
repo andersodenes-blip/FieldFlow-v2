@@ -17,33 +17,35 @@ class ReassignWeights:
 @dataclass(frozen=True)
 class RegionRouteConfig:
     max_hours_per_day: float = 7.5
-    travel_speed_kmh: float = 25.0
-    parking_minutes: float = 15.0
-    haversine_correction_factor: float = 1.0
+    travel_speed_kmh: float = 30.0
+    parking_minutes: float = 10.0
+    haversine_correction_factor: float = 1.2
     max_capacity_share: float = 0.65
     reassign_weights: ReassignWeights = field(default_factory=ReassignWeights)
     default_work_hours: float = 1.0
     max_capacity_fix_iterations: int = 100
 
 
-# Per-region overrides
+# Per-region overrides (v1 parity)
+# travel_speed_kmh=30, parking_minutes=10 for all regions
 REGION_CONFIGS: dict[str, RegionRouteConfig] = {
     "Oslo": RegionRouteConfig(
-        travel_speed_kmh=25.0,
-        parking_minutes=15.0,
+        haversine_correction_factor=1.3,
     ),
     "Bergen": RegionRouteConfig(
-        travel_speed_kmh=30.0,
-        parking_minutes=10.0,
+        haversine_correction_factor=1.4,
     ),
     "Stavanger": RegionRouteConfig(
-        travel_speed_kmh=30.0,
-        parking_minutes=10.0,
         haversine_correction_factor=1.49,
     ),
     "Drammen": RegionRouteConfig(
-        travel_speed_kmh=25.0,
-        parking_minutes=15.0,
+        haversine_correction_factor=1.2,
+    ),
+    "Innlandet": RegionRouteConfig(
+        haversine_correction_factor=1.2,
+    ),
+    "Østfold": RegionRouteConfig(
+        haversine_correction_factor=1.2,
     ),
 }
 
