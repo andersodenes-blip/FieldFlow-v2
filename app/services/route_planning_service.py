@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config.route_config import RegionRouteConfig, get_region_config
+from app.route_config import RegionRouteConfig, get_region_config
 from app.models.job import Job, JobStatus
 from app.models.location import Location
 from app.models.region import Region
