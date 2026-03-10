@@ -571,11 +571,14 @@ function routeDashboard() {
 
     init() {
       this.$nextTick(() => {
-        this.map = L.map('route-map').setView([59.91, 10.75], 6);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(this.map);
-        this.routeLayer = L.layerGroup().addTo(this.map);
+        const container = document.getElementById('route-map');
+        if (container && !container._leaflet_id) {
+          this.map = L.map('route-map').setView([59.91, 10.75], 6);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(this.map);
+          this.routeLayer = L.layerGroup().addTo(this.map);
+        }
       });
       // Set cal to start of period
       const sd = new Date(this.startDate);

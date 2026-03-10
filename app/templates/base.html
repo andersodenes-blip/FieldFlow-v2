@@ -9,10 +9,12 @@
     <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
     <style>[x-cloak] { display: none; }</style>
     <script>
-        document.body.addEventListener('htmx:responseError', function(evt) {
-            if (evt.detail.xhr.status === 401) {
-                window.location.href = '/app/login';
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.addEventListener('htmx:responseError', function(evt) {
+                if (evt.detail.xhr.status === 401) {
+                    window.location.href = '/app/login';
+                }
+            });
         });
     </script>
 </head>
