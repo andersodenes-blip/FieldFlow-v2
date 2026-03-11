@@ -1,5 +1,15 @@
 # FieldFlow v2
 
+## VIKTIG: Oppdater denne filen etter hver endring
+Etter HVER oppgave du fullforer skal du:
+1. Oppdatere CLAUDE.md med hva som ble endret
+2. Oppdatere TODO-listen (merk fulforte, legg til nye)
+3. Oppdatere filstruktur hvis nye filer ble lagt til
+4. Oppdatere API-endepunkter hvis nye ble lagt til
+5. Inkludere CLAUDE.md i git commit
+
+Dette er ikke valgfritt — CLAUDE.md er prosjektets hukommelse og ma alltid vaere oppdatert.
+
 ## Prosjekt
 
 - **Repo:** andersodenes-blip/FieldFlow-v2
