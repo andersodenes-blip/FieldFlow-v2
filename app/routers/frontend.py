@@ -262,6 +262,103 @@ async def dashboard(
     })
 
 
+@router.get("/dashboard/week-data")
+async def dashboard_week_data(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    region_id: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+):
+    """Return job visit data for a week, grouped by date."""
+    user = await _get_user_from_cookie(request, db)
+    if not user:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    tid = user.tenant_id
+
+    if not region_id or not date_from or not date_to:
+        return {"days": {}}
+
+    rid = uuid.UUID(region_id)
+    d_from = date.fromisoformat(date_from)
+    d_to = date.fromisoformat(date_to)
+
+    # Query route_visits with joins to get all needed data
+    result = await db.execute(
+        select(
+            Route.route_date,
+            Technician.name.label("tech_name"),
+            Job.id.label("job_id"),
+            Job.title,
+            Job.status,
+            Job.external_id,
+            Location.address,
+            Location.postal_code,
+            ServiceContract.sla_hours,
+            RouteVisit.estimated_work_hours,
+            RouteVisit.estimated_drive_minutes,
+            RouteVisit.sequence_order,
+            ScheduledVisit.scheduled_date,
+        )
+        .select_from(RouteVisit)
+        .join(Route, RouteVisit.route_id == Route.id)
+        .join(Technician, Route.technician_id == Technician.id)
+        .join(ScheduledVisit, RouteVisit.scheduled_visit_id == ScheduledVisit.id)
+        .join(Job, ScheduledVisit.job_id == Job.id)
+        .join(ServiceContract, Job.service_contract_id == ServiceContract.id)
+        .join(Location, ServiceContract.location_id == Location.id)
+        .where(
+            Route.tenant_id == tid,
+            Route.region_id == rid,
+            Route.route_date >= d_from,
+            Route.route_date <= d_to,
+        )
+        .order_by(Route.route_date, RouteVisit.sequence_order)
+    )
+
+    rows = result.all()
+    today_iso = date.today().isoformat()
+
+    days: dict = {}
+    for row in rows:
+        dt_key = row.route_date.isoformat()
+        if dt_key not in days:
+            days[dt_key] = {"jobs": [], "techs": {}}
+
+        # Determine status label
+        status_val = row.status.value if hasattr(row.status, "value") else str(row.status)
+        is_delayed = (
+            status_val == "scheduled"
+            and row.route_date.isoformat() < today_iso
+        )
+
+        days[dt_key]["jobs"].append({
+            "id": str(row.job_id),
+            "title": row.title,
+            "external_id": row.external_id,
+            "address": row.address,
+            "postal_code": row.postal_code,
+            "status": status_val,
+            "is_delayed": is_delayed,
+            "technician": row.tech_name,
+            "sla_hours": float(row.sla_hours) if row.sla_hours else 0,
+            "work_hours": float(row.estimated_work_hours) if row.estimated_work_hours else 0,
+            "drive_minutes": int(row.estimated_drive_minutes) if row.estimated_drive_minutes else 0,
+        })
+
+        # Accumulate per-tech hours
+        tech = row.tech_name
+        if tech not in days[dt_key]["techs"]:
+            days[dt_key]["techs"][tech] = {"work_h": 0.0, "drive_h": 0.0, "visits": 0}
+        days[dt_key]["techs"][tech]["work_h"] += float(row.estimated_work_hours) if row.estimated_work_hours else 0
+        days[dt_key]["techs"][tech]["drive_h"] += (float(row.estimated_drive_minutes) / 60.0) if row.estimated_drive_minutes else 0
+        days[dt_key]["techs"][tech]["visits"] += 1
+
+    return {"days": days}
+
+
 @router.get("/customers", response_class=HTMLResponse)
 async def customers_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await _get_user_from_cookie(request, db)

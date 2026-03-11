@@ -118,10 +118,30 @@
 .week-col-hdr .wc-day{font-size:12px;font-weight:600;color:#475569}
 .week-col-hdr .wc-date{font-size:14px;font-weight:700;color:#1a1a2e}
 .week-col-hdr.today-col{background:#eff6ff;border-bottom-color:#93c5fd}
-.week-col-body{flex:1;padding:6px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:300px}
+.week-col-body{flex:1;padding:6px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:500px}
 .week-col-footer{padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0}
 .week-cap-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
 .week-cap-fill{height:100%;border-radius:4px;transition:width .3s}
+
+/* ── Job cards (week view) ── */
+.job-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;font-size:12px;transition:.15s;cursor:pointer}
+.job-card:hover{border-color:#93c5fd;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.job-card .jc-ticket{font-weight:700;color:#1a1a2e;font-size:12px}
+.job-card .jc-addr{color:#64748b;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.job-card .jc-row{display:flex;justify-content:space-between;align-items:center;margin-top:3px}
+.job-card .jc-tech{font-size:10px;color:#475569;font-weight:600}
+.job-card .jc-hours{font-size:10px;color:#475569}
+.job-card .jc-status{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600}
+.job-card.card-fullfort{border-left:4px solid #4CAF50}
+.job-card.card-planlagt{border-left:4px solid #2196F3}
+.job-card.card-uplanlagt{border-left:4px solid #FF9800}
+.job-card.card-forsinket{border-left:4px solid #F44336}
+.jc-actions{display:flex;gap:4px;margin-top:4px}
+.jc-btn{padding:3px 8px;border:none;border-radius:3px;font-size:10px;font-weight:600;cursor:pointer;transition:.15s}
+.jc-btn-green{background:#dcfce7;color:#15803d}.jc-btn-green:hover{background:#16a34a;color:#fff}
+.jc-btn-yellow{background:#fef3c7;color:#92400e}.jc-btn-yellow:hover{background:#f59e0b;color:#fff}
+.jc-btn-blue{background:#dbeafe;color:#1d4ed8}.jc-btn-blue:hover{background:#2563eb;color:#fff}
+.week-loading{text-align:center;padding:40px 0;color:#64748b;font-size:13px}
 
 /* ── 7. JOB MODAL ── */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;justify-content:center;align-items:flex-start;padding-top:60px}
@@ -367,6 +387,7 @@
 <script>
 const CAL_DATA = {{ cal_data_json|safe }};
 const HOLIDAYS = {{ holidays_json|safe }};
+const REGION_ID = '{{ selected_region.id if selected_region else "" }}';
 const MND = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
 const DAG = ['Man','Tir','Ons','Tor','Fre','Lor','Son'];
 const DAG_LANG = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lordag','Sondag'];
@@ -389,11 +410,39 @@ function showToast(msg, type) {
     setTimeout(function(){ t.style.animation='fadeOut .3s ease forwards'; setTimeout(function(){t.remove()},300); }, 3000);
 }
 
+function jobStatusInfo(j) {
+    if (j.status === 'completed') return {cls:'card-fullfort', label:'Fullfort', bg:'#fce7f3;color:#be185d'};
+    if (j.is_delayed) return {cls:'card-forsinket', label:'Forsinket', bg:'#fee2e2;color:#dc2626'};
+    if (j.status === 'scheduled' || j.status === 'in_progress') return {cls:'card-planlagt', label:'Planlagt', bg:'#dbeafe;color:#1d4ed8'};
+    return {cls:'card-uplanlagt', label:'Uplanlagt', bg:'#ffedd5;color:#c2410c'};
+}
+
+function renderJobCard(j, todayIso) {
+    var si = jobStatusInfo(j);
+    var ticket = j.external_id || j.title || '-';
+    var h = '<div class="job-card '+si.cls+'" onclick="document._dash.openJobModal(\''+esc(j.id)+'\')">';
+    h += '<div class="jc-ticket">'+esc(ticket)+'</div>';
+    h += '<div class="jc-addr">'+esc(j.address || '-')+' '+esc(j.postal_code || '')+'</div>';
+    h += '<div class="jc-row"><span class="jc-tech">'+esc(j.technician || '-')+'</span><span class="jc-hours">'+(j.sla_hours ? j.sla_hours.toFixed(1) : '-')+'t</span></div>';
+    h += '<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span></div>';
+    h += '<div class="jc-actions">';
+    if (j.status !== 'completed') {
+        h += '<button class="jc-btn jc-btn-green" onclick="event.stopPropagation();document._dash.quickComplete(\''+esc(j.id)+'\')">Fullfor</button>';
+        h += '<button class="jc-btn jc-btn-yellow" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\');setTimeout(function(){document._dash.deferOpen=true;document._dash.deferReason=\'\'},300)">Utsett</button>';
+    }
+    h += '<button class="jc-btn jc-btn-blue" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\')">Detaljer</button>';
+    h += '</div>';
+    h += '</div>';
+    return h;
+}
+
 function dashboard() {
     return {
         calYear: new Date().getFullYear(),
         calMonth: new Date().getMonth(),
         calWeek: null,
+        weekData: {},
+        weekDataLoaded: false,
         calTechFilter: '',
         filterCountText: '',
         modalOpen: false,
@@ -447,9 +496,11 @@ function dashboard() {
             if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
             if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
             this.calWeek = null;
+            this.weekDataLoaded = false;
+            this.weekData = {};
         },
 
-        selectWeek(wk) { this.calWeek = wk; },
+        selectWeek(wk) { this.weekDataLoaded = false; this.weekData = {}; this.calWeek = wk; },
 
         renderCal() {
             // Count total visits in calendar
@@ -514,6 +565,16 @@ function dashboard() {
         },
 
         renderWeekView() {
+            // Show loading state, then fetch real job data
+            var self = this;
+            if (!this.weekDataLoaded) {
+                this.fetchWeekData();
+                return '<div class="week-loading">Laster ukesvisning...</div>';
+            }
+            return this.renderWeekViewWithData();
+        },
+
+        renderWeekViewWithData() {
             var todayIso = new Date().toISOString().slice(0,10);
             var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
             var dates = [];
@@ -528,23 +589,45 @@ function dashboard() {
             var weekDays = [null,null,null,null,null];
             dates.forEach(function(dd){ weekDays[dd.wd]=dd; });
             var self = this;
+            var wd = this.weekData || {};
             var h = '<div class="week-view">';
             for (var col=0; col<5; col++) {
                 var dd = weekDays[col];
                 h+='<div class="week-col">';
                 if (dd) {
-                    var info = self.getFilteredDay(dd.iso);
+                    var dayData = wd[dd.iso] || {jobs:[], techs:{}};
+                    var dayJobs = dayData.jobs || [];
+                    var dayTechs = dayData.techs || {};
+                    // Apply tech filter
+                    if (self.calTechFilter) {
+                        dayJobs = dayJobs.filter(function(j){ return j.technician === self.calTechFilter; });
+                        var ft = {};
+                        if (dayTechs[self.calTechFilter]) ft[self.calTechFilter] = dayTechs[self.calTechFilter];
+                        dayTechs = ft;
+                    }
                     h+='<div class="week-col-hdr'+(dd.isToday?' today-col':'')+'"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date">'+dd.day+'. '+MND[self.calMonth].toLowerCase()+'</div></div>';
                     h+='<div class="week-col-body">';
-                    if (info.techs.length===0) h+='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Ingen besok</div>';
-                    info.techs.forEach(function(t) {
-                        var pct = Math.min((t.hours/7.5)*100, 100);
-                        var col = t.hours<6?'#16a34a':(t.hours<7?'#eab308':'#dc2626');
-                        h+='<div style="margin-top:4px"><div style="font-size:11px;display:flex;justify-content:space-between"><span style="font-weight:600;color:#475569">'+esc(t.name)+'</span><span style="color:'+col+';font-weight:600">'+t.visits+' besok / '+t.hours+'t</span></div>';
-                        h+='<div class="week-cap-bar"><div class="week-cap-fill" style="width:'+pct.toFixed(0)+'%;background:'+col+'"></div></div></div>';
+                    if (dayJobs.length===0) {
+                        h+='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Ingen jobber</div>';
+                    }
+                    dayJobs.forEach(function(j) {
+                        h += renderJobCard(j, todayIso);
                     });
                     h+='</div>';
-                    h+='<div class="week-col-footer"><div style="font-size:11px;color:#64748b">'+info.visits+' besok / '+info.hours+'t</div></div>';
+                    // Footer: job count + technician progress bars
+                    h+='<div class="week-col-footer">';
+                    h+='<div style="font-size:11px;color:#64748b">'+dayJobs.length+' jobb'+(dayJobs.length!==1?'er':'')+'</div>';
+                    Object.keys(dayTechs).forEach(function(tech) {
+                        var t = dayTechs[tech];
+                        var th = t.work_h + t.drive_h;
+                        var pct = Math.min((th/7.5)*100, 100);
+                        var tColor = pct<50?'#16a34a':(pct<80?'#eab308':'#dc2626');
+                        h+='<div style="margin-top:4px">';
+                        h+='<div style="font-size:10px;display:flex;justify-content:space-between"><span style="font-weight:600;color:#475569">'+esc(tech)+'</span><span style="color:'+tColor+';font-weight:600">'+th.toFixed(1)+'t</span></div>';
+                        h+='<div class="week-cap-bar"><div class="week-cap-fill" style="width:'+pct.toFixed(0)+'%;background:'+tColor+'"></div></div>';
+                        h+='</div>';
+                    });
+                    h+='</div>';
                 } else {
                     h+='<div class="week-col-hdr"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date" style="color:#94a3b8">-</div></div>';
                     h+='<div class="week-col-body"><div style="text-align:center;color:#d1d5db;font-size:12px;padding:20px 0">Annen maned</div></div>';
@@ -554,6 +637,43 @@ function dashboard() {
             }
             h+='</div>';
             return h;
+        },
+
+        async fetchWeekData() {
+            // Determine Monday-Friday of selected week
+            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
+            var weekDates = [];
+            for (var d=1; d<=dim; d++) {
+                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt = new Date(this.calYear, this.calMonth, d);
+                var wd = (dt.getDay()+6)%7;
+                if (wd<5 && getIsoWeek(iso)===this.calWeek) {
+                    weekDates.push(iso);
+                }
+            }
+            if (weekDates.length === 0) { this.weekDataLoaded = true; this.weekData = {}; return; }
+            // Extend to full Mon-Fri even across month boundaries
+            var monday = new Date(weekDates[0]+'T12:00:00');
+            var mondayWd = (monday.getDay()+6)%7;
+            monday.setDate(monday.getDate() - mondayWd);
+            var friday = new Date(monday);
+            friday.setDate(friday.getDate() + 4);
+            var dateFrom = monday.toISOString().slice(0,10);
+            var dateTo = friday.toISOString().slice(0,10);
+
+            var regionId = REGION_ID;
+            if (!regionId) { this.weekDataLoaded = true; this.weekData = {}; return; }
+
+            try {
+                var res = await fetch('/app/dashboard/week-data?region_id='+regionId+'&date_from='+dateFrom+'&date_to='+dateTo, {
+                    headers: {'Authorization': 'Bearer '+getCookie('access_token')}
+                });
+                var data = await res.json();
+                this.weekData = data.days || {};
+            } catch(e) {
+                this.weekData = {};
+            }
+            this.weekDataLoaded = true;
         },
 
         // ── Job Modal ──
@@ -639,6 +759,14 @@ function dashboard() {
                 });
                 if (res.ok) { showToast('Dato endret','success'); this.rescheduleOpen=false; this.closeModal(); setTimeout(function(){location.reload()},500); }
                 else showToast('Feil ved datoendring','error');
+            } catch(e) { showToast('Feil: '+e.message,'error'); }
+        },
+
+        async quickComplete(jobId) {
+            try {
+                var res = await fetch('/jobs/'+jobId+'/complete', {method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                if (res.ok) { showToast('Jobb markert som fullfort','success'); this.weekDataLoaded=false; this.weekData={}; setTimeout(function(){location.reload()},500); }
+                else showToast('Feil ved fullfoering','error');
             } catch(e) { showToast('Feil: '+e.message,'error'); }
         },
     };
