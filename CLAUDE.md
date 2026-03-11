@@ -423,8 +423,11 @@ Params: `page` (default 1), `page_size` (default 20, max 100), `sort_by`, `sort_
 **Config:** `app/route_config.py`
 
 ### Regler
-- Maks **7.5t per dag** per tekniker (arbeid + reisetid, inkl. forste jobb fra hjemadresse)
-- Store jobber splittes over flere dager (f.eks. 20t -> 3 dager)
+- Maks **7.5t per dag** per tekniker (arbeid + reisetid MELLOM jobber)
+- Reisetid hjem→forste jobb teller IKKE mot 7.5t (men logges i drive_minutes)
+- Reisetid siste jobb→hjem teller IKKE mot 7.5t
+- `_place_job(count_travel=False)` for forste jobb pa dagen, `True` for resten
+- Store jobber splittes over flere dager (f.eks. 20t → 3 dager)
 - `route_visit.estimated_work_hours` = kun tildelt del (ikke total SLA)
 - Norske helligdager og helger hoppes over (Easter-algoritme)
 - Nearest-neighbor for jobbrekkefolge
@@ -458,14 +461,15 @@ sla_hours = round_up(cost / 2 / 1450, nearest 0.5)
 Stavanger-unntak: <7000 kr -> 3t, 7000-15000 -> 6t, >15000 -> formel
 ```
 
-### Kapasitetslogikk (v1-paritet)
+### Kapasitetslogikk
 ```python
+# count_travel=False for forste jobb (hjem→jobb), True for resten (jobb→jobb)
+capacity_travel = travel_hours if count_travel else 0
+capacity_cost = capacity_travel + job.work_hours
 space_left = max_hours - hours_today
-travel_hours = estimate_drive_minutes(...) / 60
-actual = travel_hours + job.work_hours
-if actual <= space_left:    # Hele jobben far plass
-elif work_today > 0:        # Split: jobb i dag + resten til pending_work
-else:                       # Ikke plass -> neste dag
+if capacity_cost <= space_left:  # Hele jobben far plass
+elif work_today > 0:             # Split: jobb i dag + resten til pending_work
+else:                            # Ikke plass -> neste dag
 ```
 
 ### Jobb-tildeling
@@ -625,3 +629,5 @@ git add -A && git commit -m "beskrivelse" && git push
 | Ruteplanlegging viser 0 jobber ved innlasting | Fikset: server-side preloading av ruter for alle regioner i routes_page() |
 | Kalender nullstilles ved regionbytte | Fikset: all_routes_json cache i JS, instant regionbytte uten API-kall |
 | Kalender-klikk (uke-tabs, dager) fungerer ikke | Fikset: `document._dash=this` i init(), ikke `_x_dataStack` |
+| 7.5t-verifisering viser OK men dag overskrider | Fikset: verifisering ekskluderer naa hjem→jobb reisetid, teller kun arbeid + mellom-jobb |
+| Flerdagsjobb + ny jobb overskrider 7.5t | Fikset: `_place_job(count_travel=False)` for forste jobb, hjem→jobb teller ikke |

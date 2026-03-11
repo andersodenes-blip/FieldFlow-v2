@@ -2,9 +2,12 @@
 """Core route planning algorithms.
 
 Implements: haversine distance with correction factor, geo-based technician
-assignment (equal_distribution), travel-aware daily capacity (7.5h incl. travel),
-nearest-neighbor route ordering during distribution, multi-day job splitting
-with pending_work priority, and Norwegian holiday exclusion.
+assignment (equal_distribution), travel-aware daily capacity (7.5h), nearest-
+neighbor route ordering during distribution, multi-day job splitting with
+pending_work priority, and Norwegian holiday exclusion.
+
+7.5h rule: work_hours + inter-job travel counts. Home→first_job and
+last_job→home travel is logged but NOT counted against the limit.
 """
 import math
 import uuid
@@ -380,19 +383,21 @@ class RoutePlanningService:
         config: RegionRouteConfig,
         day_jobs: list[JobWithCoords],
         pending_work: list[JobWithCoords],
+        count_travel: bool = True,
     ) -> tuple[float, float, float, bool]:
-        """Place a single job on the current day using v1 logic.
+        """Place a single job on the current day.
 
-        Always includes travel time (also for first job = travel from home).
-        If the job doesn't fully fit, split it: work what fits today,
-        push the remainder to pending_work for the next day.
+        Travel from home to first job is stored in drive_minutes but does NOT
+        count against the 7.5h capacity limit (count_travel=False).
+        Travel between jobs DOES count (count_travel=True).
 
         Returns (new_hours_today, new_cur_lat, new_cur_lon, placed).
         placed=False means the job was pushed to pending_work unchanged.
         """
         travel_min = estimate_drive_minutes(cur_lat, cur_lon, job.latitude, job.longitude, config)
-        travel_hours = travel_min / 60.0
-        actual_work_hours = travel_hours + job.work_hours
+        # Home→first job travel is logged but not counted against capacity
+        capacity_travel_hours = (travel_min / 60.0) if count_travel else 0.0
+        capacity_cost = capacity_travel_hours + job.work_hours
         space_left = max_hours - hours_today
 
         if space_left <= 0:
@@ -400,16 +405,14 @@ class RoutePlanningService:
             pending_work.insert(0, job)
             return hours_today, cur_lat, cur_lon, False
 
-        if actual_work_hours <= space_left:
+        if capacity_cost <= space_left:
             # Whole job fits today
             job.drive_minutes = int(travel_min)
             day_jobs.append(job)
-            return hours_today + actual_work_hours, job.latitude, job.longitude, True
+            return hours_today + capacity_cost, job.latitude, job.longitude, True
 
-        # Partial fit — v1 logic:
-        #   hours_today = min(actual_work_hours, space_left)
-        #   hours_remaining = actual_work_hours - hours_today
-        work_today = round(space_left - travel_hours, 2)
+        # Partial fit — split the job
+        work_today = round(space_left - capacity_travel_hours, 2)
         if work_today <= 0:
             # Not even travel fits — push to next day
             pending_work.insert(0, job)
@@ -446,17 +449,12 @@ class RoutePlanningService:
     ) -> tuple[dict[uuid.UUID, dict[date, list[JobWithCoords]]], list[str]]:
         """Distribute jobs across working days with travel-aware capacity.
 
-        Daily capacity: 7.5h TOTAL including work_hours + travel_hours.
-        Travel from home is ALWAYS included (also for first job of the day).
+        Daily capacity: 7.5h of work_hours + inter-job travel.
+        Travel from home to first job is logged but NOT counted against 7.5h.
+        Travel from last job back home is also NOT counted.
         Uses nearest-neighbor to pick next job during distribution.
         Handles multi-day jobs via pending_work (processed before new jobs).
         Respects technician start_date.
-
-        v1 logic per job:
-          space_left = max_hours_per_day - tech_daily_hours
-          hours_today = min(actual_work_hours, space_left)
-          tech_daily_hours += hours_today
-          hours_remaining = actual_work_hours - hours_today
         """
         result: dict[uuid.UUID, dict[date, list[JobWithCoords]]] = {}
         warnings: list[str] = []
@@ -497,6 +495,7 @@ class RoutePlanningService:
                 hours_today = 0.0
                 cur_lat, cur_lon = home_lat, home_lon
                 day_jobs: list[JobWithCoords] = []
+                first_placed = False  # Track if first job of day has been placed
 
                 # ── Process pending_work FIRST (leftover from multi-day splits) ──
                 while pending_work and hours_today < max_hours:
@@ -504,7 +503,10 @@ class RoutePlanningService:
                     hours_today, cur_lat, cur_lon, placed = self._place_job(
                         pw, hours_today, cur_lat, cur_lon, max_hours, config,
                         day_jobs, pending_work,
+                        count_travel=first_placed,
                     )
+                    if placed:
+                        first_placed = True
                     if not placed:
                         break  # day full — pending stays for next day
 
@@ -518,7 +520,10 @@ class RoutePlanningService:
                     hours_today, cur_lat, cur_lon, placed = self._place_job(
                         job, hours_today, cur_lat, cur_lon, max_hours, config,
                         day_jobs, pending_work,
+                        count_travel=first_placed,
                     )
+                    if placed:
+                        first_placed = True
                     if not placed:
                         break  # day full
 

@@ -159,34 +159,89 @@ async def main():
         print(f"{'TOTALT':15s} | {total_routes:6d} | {total_visits:6d} | {total_no_coords:11d} |")
 
         # ── VERIFY 7.5h LIMIT ───────────────────────────────────────────
-        # v1 rule: first visit (sequence_order=1) travel does NOT count toward 7.5h
-        print(f"\n=== Verifisering: 7.5t-grensen (v1-regel: forste besok uten reisetid) ===")
-        overloaded = await conn.fetch("""
-            SELECT r.route_date, t.name as tech, reg.name as region,
-                   COUNT(rv.id) as visits,
-                   SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
-                   SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as drive_hours
+        # Rule: work_hours + inter-job travel counts. Home→job1 does NOT count.
+        # Tolerance: 7.51 to allow rounding errors
+        TOLERANCE = 7.51
+        print(f"\n=== Verifisering: 7.5t-grensen (arbeid + reisetid mellom jobber) ===")
+        print(f"  Regel: hjem→jobb1 teller IKKE. Kun arbeidstid + jobb-til-jobb reisetid.")
+
+        # Fetch all routes with per-visit detail for correct calculation
+        all_route_rows = await conn.fetch("""
+            SELECT r.id as route_id, r.route_date, t.name as tech, reg.name as region,
+                   t.home_latitude, t.home_longitude
             FROM routes r
             JOIN technicians t ON r.technician_id = t.id
             JOIN regions reg ON r.region_id = reg.id
-            LEFT JOIN route_visits rv ON rv.route_id = r.id
-            LEFT JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
-            LEFT JOIN jobs j ON sv.job_id = j.id
-            LEFT JOIN service_contracts sc ON j.service_contract_id = sc.id
             WHERE r.tenant_id = $1
-            GROUP BY r.route_date, t.name, reg.name
-            HAVING SUM(COALESCE(sc.sla_hours, 1.0))
-                 + SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 > 7.5
-            ORDER BY SUM(COALESCE(sc.sla_hours, 1.0))
-                 + SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 DESC
-            LIMIT 20
+            ORDER BY reg.name, t.name, r.route_date
         """, TENANT_ID)
 
-        if overloaded:
-            print(f"  FEIL: {len(overloaded)} dager overskrider 7.5t!")
-            for r in overloaded[:10]:
-                total_h = float(r['work_hours'] or 0) + float(r['drive_hours'] or 0)
-                print(f"    {r['region']:12s} | {r['route_date']} | {r['tech']:25s} | {r['visits']} besok | {float(r['work_hours'] or 0):.1f}t arbeid + {float(r['drive_hours'] or 0):.1f}t kjoring = {total_h:.1f}t")
+        all_visit_rows = await conn.fetch("""
+            SELECT rv.route_id, rv.sequence_order,
+                   COALESCE(rv.estimated_work_hours, 1.0) as work_hours,
+                   COALESCE(rv.estimated_drive_minutes, 0) as drive_minutes,
+                   l.latitude, l.longitude
+            FROM route_visits rv
+            JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
+            JOIN jobs j ON sv.job_id = j.id
+            JOIN service_contracts sc ON j.service_contract_id = sc.id
+            JOIN locations l ON sc.location_id = l.id
+            WHERE rv.tenant_id = $1
+            ORDER BY rv.route_id, rv.sequence_order
+        """, TENANT_ID)
+
+        # Group visits by route_id
+        from collections import defaultdict
+        visits_by_route = defaultdict(list)
+        for v in all_visit_rows:
+            visits_by_route[v['route_id']].append(v)
+
+        violations = []
+        all_route_details = []
+        for rt in all_route_rows:
+            visits = visits_by_route.get(rt['route_id'], [])
+            if not visits:
+                continue
+
+            work_h = sum(float(v['work_hours']) for v in visits)
+            # First visit drive = home→job (informational, does NOT count)
+            home_to_job_h = float(visits[0]['drive_minutes']) / 60.0
+            # Inter-job drive = all visits except first (counts against 7.5h)
+            inter_job_h = sum(float(v['drive_minutes']) / 60.0 for v in visits[1:])
+
+            # Job→home: last visit location back to tech home
+            job_to_home_h = 0.0
+            last_v = visits[-1]
+            if rt['home_latitude'] and last_v['latitude']:
+                from app.services.route_planning_service import estimate_drive_minutes
+                from app.route_config import get_region_config
+                cfg = get_region_config(rt['region'])
+                job_to_home_h = estimate_drive_minutes(
+                    float(last_v['latitude']), float(last_v['longitude']),
+                    float(rt['home_latitude']), float(rt['home_longitude']),
+                    cfg,
+                ) / 60.0
+
+            countable = work_h + inter_job_h
+            detail = {
+                'region': rt['region'], 'date': rt['route_date'],
+                'tech': rt['tech'], 'visits': len(visits),
+                'work_h': work_h, 'inter_job_h': inter_job_h,
+                'home_to_job_h': home_to_job_h, 'job_to_home_h': job_to_home_h,
+                'countable': countable,
+            }
+            all_route_details.append(detail)
+            if countable > TOLERANCE:
+                violations.append(detail)
+
+        violations.sort(key=lambda d: d['countable'], reverse=True)
+
+        if violations:
+            print(f"  FEIL: {len(violations)} dager overskrider 7.5t!")
+            for d in violations[:15]:
+                print(f"    {d['region']:12s} | {d['date']} | {d['tech']:25s} | {d['visits']} besok | "
+                      f"{d['work_h']:.1f}t arbeid + {d['inter_job_h']:.1f}t mellom-jobb = {d['countable']:.1f}t | "
+                      f"hjem→jobb: {d['home_to_job_h']:.1f}t | jobb→hjem: {d['job_to_home_h']:.1f}t")
         else:
             print("  OK: Ingen dager overskrider 7.5t")
 
@@ -214,28 +269,12 @@ async def main():
         """, TENANT_ID)
         print(f"  Ruter for mai: {truls_early} (skal vaere 0)")
 
-        # Route distribution sample
+        # Route distribution sample (first 10 per region)
         print(f"\n=== Eksempel: forste 10 ruter ===")
-        routes = await conn.fetch("""
-            SELECT r.route_date, t.name as tech, reg.name as region,
-                   COUNT(rv.id) as visits,
-                   SUM(COALESCE(sc.sla_hours, 1.0)) as work_hours,
-                   SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as drive_hours
-            FROM routes r
-            JOIN technicians t ON r.technician_id = t.id
-            JOIN regions reg ON r.region_id = reg.id
-            LEFT JOIN route_visits rv ON rv.route_id = r.id
-            LEFT JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
-            LEFT JOIN jobs j ON sv.job_id = j.id
-            LEFT JOIN service_contracts sc ON j.service_contract_id = sc.id
-            WHERE r.tenant_id = $1
-            GROUP BY r.route_date, t.name, reg.name
-            ORDER BY reg.name, r.route_date
-            LIMIT 10
-        """, TENANT_ID)
-        for r in routes:
-            total_h = float(r['work_hours'] or 0) + float(r['drive_hours'] or 0)
-            print(f"  {r['region']:12s} | {r['route_date']} | {r['tech']:25s} | {r['visits']} besok | {total_h:.1f}t total")
+        for d in all_route_details[:10]:
+            print(f"  {d['region']:12s} | {d['date']} | {d['tech']:25s} | {d['visits']} besok | "
+                  f"{d['work_h']:.1f}t arbeid + {d['inter_job_h']:.1f}t mellom = {d['countable']:.1f}t | "
+                  f"hjem→jobb: {d['home_to_job_h']:.1f}t | jobb→hjem: {d['job_to_home_h']:.1f}t")
 
     finally:
         await conn.close()
