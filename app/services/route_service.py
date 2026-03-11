@@ -131,20 +131,14 @@ class RouteService:
                 continue
 
             job_result = await self.db.execute(
-                select(Job, ServiceContract.sla_hours)
-                .join(ServiceContract, ServiceContract.id == Job.service_contract_id)
-                .where(Job.id == sv.job_id)
+                select(Job).where(Job.id == sv.job_id)
             )
-            row = job_result.one_or_none()
-            if not row:
+            job = job_result.scalar_one_or_none()
+            if not job:
                 continue
-            job, sla_hours = row
 
-            # Work hours: NULL/0 → 1.0
-            if not sla_hours or sla_hours <= 0:
-                work_hours = 1.0
-            else:
-                work_hours = float(sla_hours)
+            # Use estimated_work_hours from route_visit (allocated portion)
+            work_hours = rv.estimated_work_hours if rv.estimated_work_hours else 1.0
 
             loc_result = await self.db.execute(
                 select(Location)
@@ -167,27 +161,8 @@ class RouteService:
         return responses
 
     async def _calc_total_hours(self, visits: list[RouteVisit]) -> float:
-        """Calculate total hours by looking up actual sla_hours per visit."""
-        total = 0.0
-        for rv in visits:
-            sv_result = await self.db.execute(
-                select(ScheduledVisit.job_id).where(ScheduledVisit.id == rv.scheduled_visit_id)
-            )
-            job_id = sv_result.scalar_one_or_none()
-            if not job_id:
-                total += 1.0
-                continue
-            result = await self.db.execute(
-                select(ServiceContract.sla_hours)
-                .join(Job, Job.service_contract_id == ServiceContract.id)
-                .where(Job.id == job_id)
-            )
-            sla = result.scalar_one_or_none()
-            if not sla or sla <= 0:
-                total += 1.0
-            else:
-                total += float(sla)
-        return total
+        """Calculate total hours from estimated_work_hours on each route_visit."""
+        return sum(rv.estimated_work_hours or 1.0 for rv in visits)
 
     def _calc_total_km(self, visits: list[RouteVisitResponse]) -> float:
         # Approximate from drive minutes (rough conversion)

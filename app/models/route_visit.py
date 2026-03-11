@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, Uuid
+from sqlalchemy import Float, ForeignKey, Integer, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import TenantBase
@@ -15,3 +15,4 @@ class RouteVisit(TenantBase):
     scheduled_visit_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("scheduled_visits.id"), nullable=False)
     sequence_order: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_drive_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_work_hours: Mapped[float | None] = mapped_column(Float, nullable=True)
