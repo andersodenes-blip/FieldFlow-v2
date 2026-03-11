@@ -617,3 +617,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | 401 pa dashboard/week-data | Cookie mangler, sjekk at login setter access_token cookie |
 | Ruteplanlegging viser 0 jobber ved innlasting | Fikset: server-side preloading av ruter for alle regioner i routes_page() |
 | Kalender nullstilles ved regionbytte | Fikset: all_routes_json cache i JS, instant regionbytte uten API-kall |
+| Kalender-klikk (uke-tabs, dager) fungerer ikke | Fikset: `document._dash=this` i init(), ikke `_x_dataStack` |

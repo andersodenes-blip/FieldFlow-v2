@@ -508,9 +508,10 @@ function dashboard(){
         yearPct: DB.year_pct,
 
         init(){
+            // Expose component for onclick handlers in x-html rendered content
+            document._dash=this;
             var now=new Date();
             this.subtitleText='Oppdatert '+now.toLocaleDateString('nb-NO')+' kl. '+now.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
-            // Sync header dropdown with region tabs
             this.$watch('regionId',()=>{this.techFilter='';this.selectedDay=null;this.weekDataLoaded=false;this.weekData={};this.updateUrl();this.updateFilterCount()});
             this.$watch('techFilter',()=>{this.weekDataLoaded=false;this.weekData={};this.updateFilterCount()});
             this.updateFilterCount();
@@ -888,7 +889,6 @@ function dashboard(){
 }
 
 document.addEventListener('alpine:init',function(){Alpine.data('dashboard',dashboard)});
-document.addEventListener('alpine:initialized',function(){setTimeout(function(){var el=document.querySelector('[x-data]');if(el&&el._x_dataStack)document._dash=el._x_dataStack[0]},100)});
 function getCookie(name){var v=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return v?v.pop():''}
 </script>
 {% endblock %}
