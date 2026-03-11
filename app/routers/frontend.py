@@ -78,42 +78,190 @@ async def dashboard(
         select(Region).where(Region.tenant_id == tid).order_by(Region.name)
     )
     regions = list(result.scalars().all())
+    region_map = {str(r.id): r.name for r in regions}
+    region_name_to_id = {r.name: str(r.id) for r in regions}
 
-    selected_region = None
-    if regions:
-        if region_id:
-            selected_region = next((r for r in regions if str(r.id) == region_id), regions[0])
-        else:
-            selected_region = regions[0]
+    # ── 1. Job counts grouped by city (region) and status ──
+    job_count_result = await db.execute(
+        select(
+            Location.city,
+            Job.status,
+            func.count(Job.id).label("cnt"),
+        )
+        .select_from(Job)
+        .join(ServiceContract, Job.service_contract_id == ServiceContract.id)
+        .join(Location, ServiceContract.location_id == Location.id)
+        .where(Job.tenant_id == tid)
+        .group_by(Location.city, Job.status)
+    )
 
-    # ── Job counts by status (filtered by region) ──
-    region_filter = []
-    if selected_region:
-        region_filter = [
-            Job.service_contract_id == ServiceContract.id,
-            ServiceContract.location_id == Location.id,
-            Location.city == selected_region.name,
-        ]
+    region_stats: dict[str, dict] = {}
+    all_stats = {"total": 0, "completed": 0, "scheduled": 0, "unscheduled": 0, "total_hours": 0.0}
+    for row in job_count_result.all():
+        rid = region_name_to_id.get(row.city)
+        if not rid:
+            continue
+        if rid not in region_stats:
+            region_stats[rid] = {"total": 0, "completed": 0, "scheduled": 0, "unscheduled": 0, "total_hours": 0.0}
+        cnt = row.cnt
+        status_val = row.status.value if hasattr(row.status, "value") else str(row.status)
+        region_stats[rid]["total"] += cnt
+        all_stats["total"] += cnt
+        if status_val == "completed":
+            region_stats[rid]["completed"] += cnt
+            all_stats["completed"] += cnt
+        elif status_val in ("scheduled", "in_progress"):
+            region_stats[rid]["scheduled"] += cnt
+            all_stats["scheduled"] += cnt
+        elif status_val == "unscheduled":
+            region_stats[rid]["unscheduled"] += cnt
+            all_stats["unscheduled"] += cnt
 
-    status_counts = {}
-    for s in [JobStatus.unscheduled, JobStatus.scheduled, JobStatus.in_progress, JobStatus.completed, JobStatus.cancelled]:
-        q = select(func.count(Job.id)).where(Job.tenant_id == tid, Job.status == s)
-        if region_filter:
-            q = q.join(ServiceContract, Job.service_contract_id == ServiceContract.id).join(
-                Location, ServiceContract.location_id == Location.id
-            ).where(Location.city == selected_region.name)
-        count = (await db.execute(q)).scalar() or 0
-        status_counts[s.value] = count
+    def add_pcts(s: dict) -> None:
+        t = s["total"] or 1
+        s["completed_pct"] = round(s["completed"] / t * 100)
+        s["scheduled_pct"] = round(s["scheduled"] / t * 100)
+        s["unscheduled_pct"] = round(s["unscheduled"] / t * 100)
 
-    total_jobs = sum(status_counts.values())
-    completed = status_counts["completed"]
-    scheduled = status_counts["scheduled"] + status_counts["in_progress"]
-    unscheduled = status_counts["unscheduled"]
-    pct = round(completed / total_jobs * 100) if total_jobs else 0
-    sched_pct = round(scheduled / total_jobs * 100) if total_jobs else 0
-    unsched_pct = round(unscheduled / total_jobs * 100) if total_jobs else 0
+    add_pcts(all_stats)
+    for rid in region_stats:
+        add_pcts(region_stats[rid])
+    # Ensure all regions present even if 0 jobs
+    for r in regions:
+        rid = str(r.id)
+        if rid not in region_stats:
+            region_stats[rid] = {"total": 0, "completed": 0, "scheduled": 0, "unscheduled": 0,
+                                 "total_hours": 0.0, "completed_pct": 0, "scheduled_pct": 0, "unscheduled_pct": 0}
 
-    # Year progress
+    # ── 2. Total hours by region ──
+    hours_result = await db.execute(
+        select(
+            Location.city,
+            func.coalesce(func.sum(ServiceContract.sla_hours), 0.0).label("hours"),
+        )
+        .select_from(Job)
+        .join(ServiceContract, Job.service_contract_id == ServiceContract.id)
+        .join(Location, ServiceContract.location_id == Location.id)
+        .where(Job.tenant_id == tid)
+        .group_by(Location.city)
+    )
+    all_hours = 0.0
+    for row in hours_result.all():
+        rid = region_name_to_id.get(row.city)
+        h = round(float(row.hours), 1)
+        all_hours += h
+        if rid and rid in region_stats:
+            region_stats[rid]["total_hours"] = h
+    all_stats["total_hours"] = round(all_hours, 1)
+
+    # ── 3. Technician stats (batch queries) ──
+    tech_result = await db.execute(
+        select(Technician)
+        .where(Technician.tenant_id == tid, Technician.is_active == True)
+        .order_by(Technician.name)
+    )
+    all_techs = list(tech_result.scalars().all())
+
+    # 3b. Job counts per technician
+    tech_job_counts = await db.execute(
+        select(
+            ScheduledVisit.technician_id,
+            Job.status,
+            func.count(func.distinct(ScheduledVisit.job_id)).label("cnt"),
+        )
+        .select_from(ScheduledVisit)
+        .join(Job, ScheduledVisit.job_id == Job.id)
+        .where(ScheduledVisit.tenant_id == tid)
+        .group_by(ScheduledVisit.technician_id, Job.status)
+    )
+    tech_jobs: dict[str, dict] = {}
+    for row in tech_job_counts.all():
+        tid_str = str(row.technician_id)
+        if tid_str not in tech_jobs:
+            tech_jobs[tid_str] = {"completed": 0, "scheduled": 0}
+        status_val = row.status.value if hasattr(row.status, "value") else str(row.status)
+        if status_val == "completed":
+            tech_jobs[tid_str]["completed"] += row.cnt
+        elif status_val in ("scheduled", "in_progress"):
+            tech_jobs[tid_str]["scheduled"] += row.cnt
+
+    # 3c. Work hours per technician
+    tech_hours_result = await db.execute(
+        select(
+            Route.technician_id,
+            func.coalesce(func.sum(RouteVisit.estimated_work_hours), 0.0).label("work_h"),
+            func.coalesce(func.sum(RouteVisit.estimated_drive_minutes), 0.0).label("drive_min"),
+        )
+        .select_from(RouteVisit)
+        .join(Route, RouteVisit.route_id == Route.id)
+        .where(Route.tenant_id == tid)
+        .group_by(Route.technician_id)
+    )
+    tech_hours: dict[str, dict] = {}
+    for row in tech_hours_result.all():
+        tech_hours[str(row.technician_id)] = {
+            "work_h": round(float(row.work_h), 1),
+            "drive_h": round(float(row.drive_min) / 60.0, 1),
+        }
+
+    # Build per-region tech stats
+    region_techs: dict[str, list] = {}
+    for tech in all_techs:
+        rid = str(tech.region_id)
+        if rid not in region_techs:
+            region_techs[rid] = []
+        tid_str = str(tech.id)
+        tj = tech_jobs.get(tid_str, {"completed": 0, "scheduled": 0})
+        th = tech_hours.get(tid_str, {"work_h": 0.0, "drive_h": 0.0})
+        total = tj["completed"] + tj["scheduled"]
+        r_total = region_stats.get(rid, {}).get("total", 0) or 1
+        region_techs[rid].append({
+            "name": tech.name,
+            "region": region_map.get(rid, ""),
+            "total": total,
+            "completed": tj["completed"],
+            "scheduled": tj["scheduled"],
+            "completed_pct": round(tj["completed"] / total * 100) if total else 0,
+            "share_pct": round(total / r_total * 100),
+            "work_hours": th["work_h"],
+            "drive_hours": th["drive_h"],
+        })
+
+    # ── 4. Calendar data for ALL regions (single batch query) ──
+    cal_result = await db.execute(
+        select(
+            Route.region_id,
+            Route.route_date,
+            Technician.name.label("tech_name"),
+            func.count(RouteVisit.id).label("visit_count"),
+            func.coalesce(func.sum(RouteVisit.estimated_work_hours), 0.0).label("work_h"),
+            func.coalesce(func.sum(RouteVisit.estimated_drive_minutes), 0.0).label("drive_min"),
+        )
+        .select_from(RouteVisit)
+        .join(Route, RouteVisit.route_id == Route.id)
+        .join(Technician, Route.technician_id == Technician.id)
+        .where(Route.tenant_id == tid)
+        .group_by(Route.region_id, Route.route_date, Technician.name)
+        .order_by(Route.route_date)
+    )
+    region_cal: dict[str, dict] = {}
+    for row in cal_result.all():
+        rid = str(row.region_id)
+        if rid not in region_cal:
+            region_cal[rid] = {}
+        dt_key = row.route_date.isoformat()
+        if dt_key not in region_cal[rid]:
+            region_cal[rid][dt_key] = {"visits": 0, "work_h": 0.0, "drive_h": 0.0, "techs": []}
+        region_cal[rid][dt_key]["visits"] += row.visit_count
+        region_cal[rid][dt_key]["work_h"] += float(row.work_h)
+        region_cal[rid][dt_key]["drive_h"] += float(row.drive_min) / 60.0
+        region_cal[rid][dt_key]["techs"].append({
+            "name": row.tech_name,
+            "visits": row.visit_count,
+            "hours": round(float(row.work_h) + float(row.drive_min) / 60.0, 1),
+        })
+
+    # ── Year progress ──
     today = date.today()
     year_start = date(today.year, 1, 1)
     year_end = date(today.year, 12, 31)
@@ -121,144 +269,27 @@ async def dashboard(
     days_passed = (today - year_start).days
     year_pct = round(days_passed / year_days * 100)
 
-    if pct >= year_pct:
-        status_klasse = "good"
-        status_tekst = "I rute"
-    elif pct >= year_pct - 10:
-        status_klasse = "ok"
-        status_tekst = "Nesten i rute"
-    else:
-        status_klasse = "behind"
-        status_tekst = "Pa etterskudd"
-
-    # ── Total hours (sum of sla_hours for region) ──
-    hours_q = select(func.sum(ServiceContract.sla_hours)).join(
-        Job, Job.service_contract_id == ServiceContract.id
-    ).join(Location, ServiceContract.location_id == Location.id).where(
-        Job.tenant_id == tid,
-    )
-    if selected_region:
-        hours_q = hours_q.where(Location.city == selected_region.name)
-    total_hours = (await db.execute(hours_q)).scalar() or 0.0
-
-    # ── Per-technician stats ──
-    tech_query = (
-        select(Technician)
-        .where(Technician.tenant_id == tid, Technician.is_active == True)
-    )
-    if selected_region:
-        tech_query = tech_query.where(Technician.region_id == selected_region.id)
-    tech_query = tech_query.order_by(Technician.name)
-
-    result = await db.execute(tech_query)
-    raw_techs = list(result.scalars().all())
-
-    tech_stats = []
-    for tech in raw_techs:
-        # Count jobs per status via scheduled_visits -> jobs
-        tech_completed = (await db.execute(
-            select(func.count(func.distinct(ScheduledVisit.job_id)))
-            .join(Job, ScheduledVisit.job_id == Job.id)
-            .where(ScheduledVisit.technician_id == tech.id, ScheduledVisit.tenant_id == tid, Job.status == JobStatus.completed)
-        )).scalar() or 0
-
-        tech_scheduled = (await db.execute(
-            select(func.count(func.distinct(ScheduledVisit.job_id)))
-            .join(Job, ScheduledVisit.job_id == Job.id)
-            .where(ScheduledVisit.technician_id == tech.id, ScheduledVisit.tenant_id == tid,
-                   Job.status.in_([JobStatus.scheduled, JobStatus.in_progress]))
-        )).scalar() or 0
-
-        tech_total = tech_completed + tech_scheduled
-
-        # Sum work hours + drive hours from route_visits
-        rv_result = await db.execute(
-            select(
-                func.coalesce(func.sum(RouteVisit.estimated_work_hours), 0.0),
-                func.coalesce(func.sum(RouteVisit.estimated_drive_minutes), 0.0),
-            )
-            .join(Route, RouteVisit.route_id == Route.id)
-            .where(Route.technician_id == tech.id, Route.tenant_id == tid)
-        )
-        rv_row = rv_result.one()
-        tech_work_hours = float(rv_row[0])
-        tech_drive_minutes = float(rv_row[1])
-        tech_drive_hours = round(tech_drive_minutes / 60.0, 1)
-
-        tech_pct = round(tech_completed / tech_total * 100) if tech_total else 0
-        share_pct = round(tech_total / total_jobs * 100) if total_jobs else 0
-
-        tech_stats.append({
-            "name": tech.name,
-            "total": tech_total,
-            "completed": tech_completed,
-            "scheduled": tech_scheduled,
-            "completed_pct": tech_pct,
-            "share_pct": share_pct,
-            "work_hours": round(tech_work_hours, 1),
-            "drive_hours": tech_drive_hours,
-        })
-
-    # ── Calendar data: jobs per date for the selected region ──
-    # Gather all scheduled_visits with route dates for region techs
-    cal_data = {}
-    if selected_region:
-        cal_result = await db.execute(
-            select(
-                Route.route_date,
-                Technician.name.label("tech_name"),
-                func.count(RouteVisit.id).label("visit_count"),
-                func.coalesce(func.sum(RouteVisit.estimated_work_hours), 0.0).label("work_h"),
-                func.coalesce(func.sum(RouteVisit.estimated_drive_minutes), 0.0).label("drive_min"),
-            )
-            .join(Route, RouteVisit.route_id == Route.id)
-            .join(Technician, Route.technician_id == Technician.id)
-            .where(Route.tenant_id == tid, Route.region_id == selected_region.id)
-            .group_by(Route.route_date, Technician.name)
-            .order_by(Route.route_date)
-        )
-        for row in cal_result.all():
-            dt_key = row.route_date.isoformat()
-            if dt_key not in cal_data:
-                cal_data[dt_key] = {"visits": 0, "work_h": 0.0, "drive_h": 0.0, "techs": []}
-            cal_data[dt_key]["visits"] += row.visit_count
-            cal_data[dt_key]["work_h"] += float(row.work_h)
-            cal_data[dt_key]["drive_h"] += float(row.drive_min) / 60.0
-            cal_data[dt_key]["techs"].append({
-                "name": row.tech_name,
-                "visits": row.visit_count,
-                "hours": round(float(row.work_h) + float(row.drive_min) / 60.0, 1),
-            })
-
     # ── Norwegian holidays ──
     holidays = {}
     for year in range(today.year, today.year + 2):
         for h in get_norwegian_holidays(year):
             holidays[h.isoformat()] = True
 
-    import json
+    # ── Assemble dashboard data ──
+    dashboard_data = {
+        "stats": {"all": all_stats, **region_stats},
+        "techs": region_techs,
+        "cal": region_cal,
+        "year_pct": year_pct,
+    }
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
         "active_page": "dashboard",
         "regions": regions,
-        "selected_region": selected_region,
-        "stats": {
-            "total": total_jobs,
-            "completed": completed,
-            "completed_pct": pct,
-            "scheduled": scheduled,
-            "scheduled_pct": sched_pct,
-            "unscheduled": unscheduled,
-            "unscheduled_pct": unsched_pct,
-            "total_hours": round(float(total_hours), 1),
-        },
-        "year_pct": year_pct,
-        "status_klasse": status_klasse,
-        "status_tekst": status_tekst,
-        "tech_stats": tech_stats,
-        "cal_data_json": json.dumps(cal_data),
+        "selected_region_id": region_id or "",
+        "dashboard_json": json.dumps(dashboard_data),
         "holidays_json": json.dumps(holidays),
     })
 

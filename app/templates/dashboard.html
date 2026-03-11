@@ -8,24 +8,24 @@
 .dash-wrap{background:#f0f2f5;margin:-24px;padding:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,sans-serif;color:#1a1a2e;line-height:1.5}
 
 /* ── 1. HEADER ── */
-.dash-header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:28px 40px;display:flex;justify-content:space-between;align-items:center}
-.dash-header h1{font-size:22px;font-weight:600}
-.dash-header .subtitle{color:#94a3b8;font-size:13px;margin-top:4px}
-.dash-header-right{display:flex;gap:10px;align-items:center}
-.btn-hdr{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;transition:.2s;text-decoration:none}
+.dash-header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:20px 32px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.dash-header h1{font-size:22px;font-weight:600;margin:0}
+.dash-header .subtitle{color:#94a3b8;font-size:13px;margin-top:2px}
+.dash-header-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hdr-select{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer;min-width:130px}
+.hdr-select option{color:#1a1a2e;background:#fff}
+.hdr-input{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 12px;border-radius:6px;font-size:13px;min-width:160px}
+.hdr-input::placeholder{color:#94a3b8}
+.btn-hdr{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;transition:.2s;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
 .btn-hdr:hover{background:rgba(255,255,255,.22)}
+.bell-btn{position:relative;font-size:16px;padding:7px 10px}
+.bell-badge{position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:50%;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1}
 
 /* ── Container ── */
-.dash-container{max-width:1200px;margin:0 auto;padding:24px 20px 40px}
+.dash-container{max-width:1280px;margin:0 auto;padding:24px 20px 40px}
 .section{margin-bottom:28px}
 .section-title{font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#475569;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
 .card{background:#fff;border-radius:10px;padding:22px 24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-
-/* ── Region tabs ── */
-.region-tabs{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap}
-.region-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:.2s;border:1px solid #e2e8f0;color:#475569;background:#fff}
-.region-tab:hover{background:#eff6ff;border-color:#93c5fd}
-.region-tab.active{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-color:transparent}
 
 /* ── 2. KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
@@ -54,28 +54,35 @@
 
 /* ── 4. TECHNICIAN GRID ── */
 .tech-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:28px}
-.tech-card{padding:0;overflow:hidden}
-.tech-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f1f5f9}
-.tech-header h3{font-size:15px;font-weight:600}
+.tech-card{padding:0;overflow:hidden;cursor:pointer;transition:.2s;border:2px solid transparent}
+.tech-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.tech-card.selected{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}
+.tech-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #f1f5f9}
+.tech-header h3{font-size:14px;font-weight:600}
+.tech-region-badge{font-size:10px;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:10px}
 .badge{font-size:11px;color:#fff;padding:2px 8px;border-radius:10px;font-weight:500}
-.tech-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:14px 20px}
-.stat-row{text-align:center;padding:4px 0}
-.stat-row .label{display:block;font-size:11px;color:#94a3b8}
-.stat-row .val{display:block;font-size:16px;font-weight:600}
+.tech-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:12px 18px}
+.stat-row{text-align:center;padding:3px 0}
+.stat-row .label{display:block;font-size:10px;color:#94a3b8}
+.stat-row .val{display:block;font-size:15px;font-weight:600}
 .c-pink{color:#ec4899}.c-blue{color:#2563eb}.c-orange{color:#ea580c}
-.tech-kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:0;padding:10px 20px;border-top:1px solid #f1f5f9;background:#f8fafc}
-.tech-kpi-row .kpi-item{text-align:center;padding:4px 2px}
+.tech-kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:0;padding:8px 18px;border-top:1px solid #f1f5f9;background:#f8fafc}
+.tech-kpi-row .kpi-item{text-align:center;padding:3px 2px}
 .tech-kpi-row .kpi-label{display:block;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px}
-.tech-kpi-row .kpi-value{display:block;font-size:13px;font-weight:600;margin-top:2px}
-.tech-progress{padding:12px 20px 16px;border-top:1px solid #f1f5f9}
+.tech-kpi-row .kpi-value{display:block;font-size:13px;font-weight:600;margin-top:1px}
+.tech-progress{padding:10px 18px 14px;border-top:1px solid #f1f5f9}
 .tech-progress .progress-bar{height:8px;border-radius:4px}
 .tech-progress .progress-fill{border-radius:4px}
 
 /* ── 5. FILTER BAR ── */
-.filter-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.region-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.region-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s;border:1px solid #e2e8f0;color:#475569;background:#fff}
+.region-tab:hover{background:#eff6ff;border-color:#93c5fd}
+.region-tab.active{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-color:transparent}
+.filter-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .filter-bar select,.filter-bar input{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;color:#1a1a2e}
-.filter-bar input{flex:1;min-width:200px}
-.filter-bar select{min-width:150px}
+.filter-bar input{flex:1;min-width:180px}
+.filter-bar select{min-width:140px}
 .filter-count{font-size:12px;color:#64748b;margin-left:auto;white-space:nowrap}
 
 /* ── 6. CALENDAR ── */
@@ -123,7 +130,7 @@
 .week-cap-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
 .week-cap-fill{height:100%;border-radius:4px;transition:width .3s}
 
-/* ── Job cards (week view) ── */
+/* ── Job cards ── */
 .job-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;font-size:12px;transition:.15s;cursor:pointer}
 .job-card:hover{border-color:#93c5fd;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .job-card .jc-ticket{font-weight:700;color:#1a1a2e;font-size:12px}
@@ -177,12 +184,19 @@
 .defer-reason:hover{border-color:#93c5fd;background:#eff6ff}
 .defer-reason.selected{border-color:#2563eb;background:#eff6ff;font-weight:600}
 
+/* ── Warning panel ── */
+.warn-panel{position:absolute;top:100%;right:0;background:#fff;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.15);padding:16px;min-width:300px;max-height:300px;overflow-y:auto;z-index:100}
+.warn-item{padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;color:#64748b}
+.warn-item:last-child{border-bottom:none}
+.warn-item .warn-tech{font-weight:600;color:#1a1a2e}
+
 /* ── Toast ── */
 .toast-container{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
 .toast{padding:14px 20px;border-radius:8px;color:#fff;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease;min-width:280px}
 .toast-success{background:#16a34a}
 .toast-error{background:#dc2626}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
 /* ── Responsive ── */
 @media(max-width:900px){.week-view{grid-template-columns:repeat(3,1fr)}}
@@ -190,7 +204,8 @@
     .kpi-grid{grid-template-columns:repeat(2,1fr)}
     .tech-grid{grid-template-columns:1fr}
     .filter-bar{flex-direction:column}
-    .dash-header{flex-direction:column;gap:12px;padding:20px}
+    .dash-header{flex-direction:column;gap:12px;padding:16px}
+    .dash-header-right{width:100%;justify-content:flex-start}
     .modal{width:100%;margin:0 10px}
     .week-view{grid-template-columns:1fr}
 }
@@ -201,51 +216,78 @@
     <!-- 1. HEADER -->
     <div class="dash-header">
         <div>
-            <h1>Hedengren Service AS{% if selected_region %} &mdash; {{ selected_region.name }} Dashboard{% endif %}</h1>
+            <h1>FieldFlow</h1>
             <div class="subtitle" x-text="subtitleText">Laster data...</div>
         </div>
         <div class="dash-header-right">
+            <select class="hdr-select" x-model="regionId">
+                <option value="all">Alle regioner</option>
+                {% for r in regions %}
+                <option value="{{ r.id }}">{{ r.name }}</option>
+                {% endfor %}
+            </select>
+            <select class="hdr-select" x-model="techFilter">
+                <option value="">Alle teknikere</option>
+                <template x-for="t in currentTechs" :key="t.name">
+                    <option :value="t.name" x-text="t.name"></option>
+                </template>
+            </select>
+            <input class="hdr-input" type="text" placeholder="Sok ticket/adresse..." x-model="searchFilter">
+            <div style="position:relative">
+                <button class="btn-hdr bell-btn" @click="showWarnings=!showWarnings">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                    <span class="bell-badge" x-show="warningCount>0" x-text="warningCount" x-cloak></span>
+                </button>
+                <div class="warn-panel" x-show="showWarnings" @click.outside="showWarnings=false" x-cloak>
+                    <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:8px">Kapasitetsvarsler</div>
+                    <template x-if="warnings.length===0">
+                        <div style="font-size:12px;color:#94a3b8;padding:8px 0">Ingen varsler</div>
+                    </template>
+                    <template x-for="w in warnings" :key="w.date+w.tech">
+                        <div class="warn-item">
+                            <span class="warn-tech" x-text="w.tech"></span> &mdash;
+                            <span x-text="w.date"></span>:
+                            <span style="color:#ef4444;font-weight:600" x-text="w.hours.toFixed(1)+'t'"></span> (maks 7.5t)
+                        </div>
+                    </template>
+                </div>
+            </div>
             <a href="/app/routes" class="btn-hdr">Ruteplanlegging</a>
             <a href="/app/jobs" class="btn-hdr">Jobber</a>
-            <button class="btn-hdr" @click="location.reload()">Oppdater</button>
         </div>
     </div>
 
     <div class="dash-container">
 
         <!-- Region tabs -->
-        {% if regions %}
         <div class="region-tabs">
-            {% for region in regions %}
-            <a href="/app/dashboard?region_id={{ region.id }}"
-               class="region-tab{% if selected_region and selected_region.id == region.id %} active{% endif %}">
-                {{ region.name }}
-            </a>
+            <div class="region-tab" :class="regionId==='all'?'active':''" @click="setRegion('all')">Alle</div>
+            {% for r in regions %}
+            <div class="region-tab" :class="regionId==='{{ r.id }}'?'active':''" @click="setRegion('{{ r.id }}')">{{ r.name }}</div>
             {% endfor %}
         </div>
-        {% endif %}
 
         <!-- 2. KPI GRID -->
         <div class="kpi-grid">
             <div class="kpi kpi-total">
                 <div class="kpi-label">Totalt</div>
-                <div class="kpi-value">{{ stats.total }}</div>
-                <div class="kpi-sub">{{ stats.total_hours }} timer</div>
+                <div class="kpi-value" x-text="cs.total"></div>
+                <div class="kpi-sub" x-text="cs.total_hours+' timer'"></div>
             </div>
             <div class="kpi kpi-done">
                 <div class="kpi-label">Fullfort</div>
-                <div class="kpi-value">{{ stats.completed }}</div>
-                <div class="kpi-sub">{{ stats.completed_pct }}%</div>
+                <div class="kpi-value" x-text="cs.completed"></div>
+                <div class="kpi-sub" x-text="cs.completed_pct+'%'"></div>
             </div>
             <div class="kpi kpi-planned">
                 <div class="kpi-label">Planlagt</div>
-                <div class="kpi-value">{{ stats.scheduled }}</div>
-                <div class="kpi-sub">{{ stats.scheduled_pct }}%</div>
+                <div class="kpi-value" x-text="cs.scheduled"></div>
+                <div class="kpi-sub" x-text="cs.scheduled_pct+'%'"></div>
             </div>
             <div class="kpi kpi-unplanned">
                 <div class="kpi-label">Uplanlagt</div>
-                <div class="kpi-value">{{ stats.unscheduled }}</div>
-                <div class="kpi-sub">{{ stats.unscheduled_pct }}%</div>
+                <div class="kpi-value" x-text="cs.unscheduled"></div>
+                <div class="kpi-sub" x-text="cs.unscheduled_pct+'%'"></div>
             </div>
         </div>
 
@@ -254,15 +296,15 @@
             <h2 class="section-title">Arets fremgang</h2>
             <div class="card">
                 <div class="progress-row">
-                    <span class="label">Fullfort: {{ stats.completed }}/{{ stats.total }} ({{ stats.completed_pct }}%)</span>
-                    <span class="value">Aret: {{ year_pct }}% passert</span>
+                    <span class="label" x-text="'Fullfort: '+cs.completed+'/'+cs.total+' ('+cs.completed_pct+'%)'"></span>
+                    <span class="value" x-text="'Aret: '+yearPct+'% passert'"></span>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width:{{ stats.completed_pct }}%"></div>
-                    <div class="year-marker" style="left:{{ year_pct }}%"></div>
+                    <div class="progress-fill" :style="'width:'+cs.completed_pct+'%'"></div>
+                    <div class="year-marker" :style="'left:'+yearPct+'%'"></div>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-top:4px">
-                    <span class="status-label status-{{ status_klasse }}">{{ status_tekst }}</span>
+                    <span class="status-label" :class="'status-'+statusKlasse" x-text="statusTekst"></span>
                     <span style="font-size:11px;color:#94a3b8">Rod linje = dagens dato i aret</span>
                 </div>
             </div>
@@ -272,35 +314,34 @@
         <div class="section">
             <h2 class="section-title">Fordeling per tekniker</h2>
             <div class="tech-grid">
-                {% for t in tech_stats %}
-                {% set colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'] %}
-                {% set c = colors[loop.index0 % 6] %}
-                <div class="card tech-card">
-                    <div class="tech-header" style="border-left:4px solid {{ c }}">
-                        <h3>{{ t.name }}</h3>
-                        <span class="badge" style="background:{{ c }}">{{ t.share_pct }}% av alle</span>
-                    </div>
-                    <div class="tech-stats">
-                        <div class="stat-row"><span class="label">Totalt</span><span class="val">{{ t.total }}</span></div>
-                        <div class="stat-row"><span class="label">Fullfort</span><span class="val c-pink">{{ t.completed }}</span></div>
-                        <div class="stat-row"><span class="label">Planlagt</span><span class="val c-blue">{{ t.scheduled }}</span></div>
-                    </div>
-                    <div class="tech-kpi-row">
-                        <div class="kpi-item"><span class="kpi-label">Arbeidstimer</span><span class="kpi-value">{{ t.work_hours }} t</span></div>
-                        <div class="kpi-item"><span class="kpi-label">Reisetimer</span><span class="kpi-value">{{ t.drive_hours }} t</span></div>
-                    </div>
-                    <div class="tech-progress">
-                        <div class="progress-row" style="margin-bottom:4px">
-                            <span class="label" style="font-size:12px">Fullfort {{ t.completed_pct }}%</span>
-                            <span class="value" style="font-size:11px;color:#94a3b8">Aret: {{ year_pct }}% passert</span>
+                <template x-for="(t,idx) in currentTechs" :key="t.name">
+                    <div class="card tech-card" :class="techFilter===t.name?'selected':''" @click="toggleTech(t.name)">
+                        <div class="tech-header" :style="'border-left:4px solid '+TECH_COLORS[idx%6]">
+                            <h3 x-text="t.name"></h3>
+                            <span class="tech-region-badge" x-text="t.region" x-show="regionId==='all'"></span>
+                            <span class="badge" :style="'background:'+TECH_COLORS[idx%6]" x-text="t.share_pct+'% av alle'"></span>
                         </div>
-                        <div class="progress-bar" style="height:8px">
-                            <div class="progress-fill" style="width:{{ t.completed_pct }}%;background:{{ c }};height:100%"></div>
-                            <div class="year-marker" style="left:{{ year_pct }}%;height:14px;top:-3px"></div>
+                        <div class="tech-stats">
+                            <div class="stat-row"><span class="label">Totalt</span><span class="val" x-text="t.total"></span></div>
+                            <div class="stat-row"><span class="label">Fullfort</span><span class="val c-pink" x-text="t.completed"></span></div>
+                            <div class="stat-row"><span class="label">Planlagt</span><span class="val c-blue" x-text="t.scheduled"></span></div>
+                        </div>
+                        <div class="tech-kpi-row">
+                            <div class="kpi-item"><span class="kpi-label">Arbeidstimer</span><span class="kpi-value" x-text="t.work_hours+' t'"></span></div>
+                            <div class="kpi-item"><span class="kpi-label">Reisetimer</span><span class="kpi-value" x-text="t.drive_hours+' t'"></span></div>
+                        </div>
+                        <div class="tech-progress">
+                            <div class="progress-row" style="margin-bottom:4px">
+                                <span class="label" style="font-size:12px" x-text="'Fullfort '+t.completed_pct+'%'"></span>
+                                <span class="value" style="font-size:11px;color:#94a3b8" x-text="'Aret: '+yearPct+'% passert'"></span>
+                            </div>
+                            <div class="progress-bar" style="height:8px">
+                                <div class="progress-fill" :style="'width:'+t.completed_pct+'%;background:'+TECH_COLORS[idx%6]+';height:100%'"></div>
+                                <div class="year-marker" :style="'left:'+yearPct+'%;height:14px;top:-3px'"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
+                </template>
             </div>
         </div>
 
@@ -308,12 +349,20 @@
         <div class="section">
             <h2 class="section-title">Kalender</h2>
             <div class="filter-bar">
-                <select x-model="calTechFilter" @change="renderCal()">
+                <select x-model="techFilter">
                     <option value="">Alle teknikere</option>
-                    {% for t in tech_stats %}
-                    <option value="{{ t.name }}">{{ t.name }}</option>
-                    {% endfor %}
+                    <template x-for="t in currentTechs" :key="t.name">
+                        <option :value="t.name" x-text="t.name"></option>
+                    </template>
                 </select>
+                <select x-model="statusFilter">
+                    <option value="">Alle statuser</option>
+                    <option value="completed">Fullfort</option>
+                    <option value="scheduled">Planlagt</option>
+                    <option value="unscheduled">Uplanlagt</option>
+                    <option value="delayed">Forsinket</option>
+                </select>
+                <input type="text" placeholder="Sok ticket/adresse..." x-model="searchFilter">
                 <span class="filter-count" x-text="filterCountText"></span>
             </div>
             <div class="card" style="padding:16px">
@@ -385,74 +434,64 @@
 </div>
 
 <script>
-const CAL_DATA = {{ cal_data_json|safe }};
-const HOLIDAYS = {{ holidays_json|safe }};
-const REGION_ID = '{{ selected_region.id if selected_region else "" }}';
-const MND = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
-const DAG = ['Man','Tir','Ons','Tor','Fre','Lor','Son'];
-const DAG_LANG = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lordag','Sondag'];
+var DB = {{ dashboard_json|safe }};
+var HOLIDAYS = {{ holidays_json|safe }};
+var REGION_MAP = { {% for r in regions %}'{{ r.id }}':'{{ r.name }}',{% endfor %} };
+var MND = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+var DAG = ['Man','Tir','Ons','Tor','Fre','Lor','Son'];
+var DAG_LANG = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lordag','Sondag'];
+var TECH_COLORS = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4'];
 
-function pad2(n) { return n < 10 ? '0'+n : ''+n; }
-function esc(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function getIsoWeek(iso) {
-    var d = new Date(iso+'T12:00:00');
-    var dayNum = d.getDay() || 7;
-    d.setDate(d.getDate() + 4 - dayNum);
-    var ys = new Date(d.getFullYear(), 0, 1);
-    return Math.ceil((((d - ys) / 86400000) + 1) / 7);
-}
-function showToast(msg, type) {
-    var c = document.getElementById('toast-container');
-    var t = document.createElement('div');
-    t.className = 'toast toast-' + type;
-    t.textContent = msg;
-    c.appendChild(t);
-    setTimeout(function(){ t.style.animation='fadeOut .3s ease forwards'; setTimeout(function(){t.remove()},300); }, 3000);
+function pad2(n){return n<10?'0'+n:''+n}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function getIsoWeek(iso){var d=new Date(iso+'T12:00:00');var dn=d.getDay()||7;d.setDate(d.getDate()+4-dn);var ys=new Date(d.getFullYear(),0,1);return Math.ceil((((d-ys)/86400000)+1)/7)}
+function showToast(msg,type){var c=document.getElementById('toast-container');var t=document.createElement('div');t.className='toast toast-'+type;t.textContent=msg;c.appendChild(t);setTimeout(function(){t.style.animation='fadeOut .3s ease forwards';setTimeout(function(){t.remove()},300)},3000)}
+
+function jobStatusInfo(j){
+    if(j.status==='completed')return{cls:'card-fullfort',label:'Fullfort',bg:'#fce7f3;color:#be185d'};
+    if(j.is_delayed)return{cls:'card-forsinket',label:'Forsinket',bg:'#fee2e2;color:#dc2626'};
+    if(j.status==='scheduled'||j.status==='in_progress')return{cls:'card-planlagt',label:'Planlagt',bg:'#dbeafe;color:#1d4ed8'};
+    return{cls:'card-uplanlagt',label:'Uplanlagt',bg:'#ffedd5;color:#c2410c'};
 }
 
-function jobStatusInfo(j) {
-    if (j.status === 'completed') return {cls:'card-fullfort', label:'Fullfort', bg:'#fce7f3;color:#be185d'};
-    if (j.is_delayed) return {cls:'card-forsinket', label:'Forsinket', bg:'#fee2e2;color:#dc2626'};
-    if (j.status === 'scheduled' || j.status === 'in_progress') return {cls:'card-planlagt', label:'Planlagt', bg:'#dbeafe;color:#1d4ed8'};
-    return {cls:'card-uplanlagt', label:'Uplanlagt', bg:'#ffedd5;color:#c2410c'};
-}
-
-function renderJobCard(j, todayIso) {
-    var si = jobStatusInfo(j);
-    var ticket = j.external_id || j.title || '-';
-    var h = '<div class="job-card '+si.cls+'" onclick="document._dash.openJobModal(\''+esc(j.id)+'\')">';
-    h += '<div class="jc-ticket">'+esc(ticket)+'</div>';
-    h += '<div class="jc-addr">'+esc(j.address || '-')+' '+esc(j.postal_code || '')+'</div>';
-    h += '<div class="jc-row"><span class="jc-tech">'+esc(j.technician || '-')+'</span><span class="jc-hours">'+(j.sla_hours ? j.sla_hours.toFixed(1) : '-')+'t</span></div>';
-    h += '<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span>';
-    // +Xd/-Xd badge for completed jobs
-    if (j.status === 'completed' && j.scheduled_date && j.updated_at) {
-        var planMs = new Date(j.scheduled_date+'T00:00:00').getTime();
-        var doneMs = new Date(j.updated_at.slice(0,10)+'T00:00:00').getTime();
-        var diffD = Math.round((doneMs - planMs) / 86400000);
-        if (diffD > 0) h += '<span style="font-size:10px;color:#ea580c;margin-left:6px;font-weight:600">+'+diffD+'d</span>';
-        else if (diffD < 0) h += '<span style="font-size:10px;color:#16a34a;margin-left:6px;font-weight:600">'+diffD+'d</span>';
+function renderJobCard(j,todayIso){
+    var si=jobStatusInfo(j);
+    var ticket=j.external_id||j.title||'-';
+    var h='<div class="job-card '+si.cls+'" onclick="document._dash.openJobModal(\''+esc(j.id)+'\')">';
+    h+='<div class="jc-ticket">'+esc(ticket)+'</div>';
+    h+='<div class="jc-addr">'+esc(j.address||'-')+' '+esc(j.postal_code||'')+'</div>';
+    h+='<div class="jc-row"><span class="jc-tech">'+esc(j.technician||'-')+'</span><span class="jc-hours">'+(j.sla_hours?j.sla_hours.toFixed(1):'-')+'t</span></div>';
+    h+='<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span>';
+    if(j.status==='completed'&&j.scheduled_date&&j.updated_at){
+        var planMs=new Date(j.scheduled_date+'T00:00:00').getTime();
+        var doneMs=new Date(j.updated_at.slice(0,10)+'T00:00:00').getTime();
+        var diffD=Math.round((doneMs-planMs)/86400000);
+        if(diffD>0)h+='<span style="font-size:10px;color:#ea580c;margin-left:6px;font-weight:600">+'+diffD+'d</span>';
+        else if(diffD<0)h+='<span style="font-size:10px;color:#16a34a;margin-left:6px;font-weight:600">'+diffD+'d</span>';
     }
-    h += '</div>';
-    h += '<div class="jc-actions">';
-    if (j.status !== 'completed') {
-        h += '<button class="jc-btn jc-btn-green" onclick="event.stopPropagation();document._dash.quickComplete(\''+esc(j.id)+'\')">Fullfor</button>';
-        h += '<button class="jc-btn jc-btn-yellow" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\');setTimeout(function(){document._dash.deferOpen=true;document._dash.deferReason=\'\'},300)">Utsett</button>';
+    h+='</div>';
+    h+='<div class="jc-actions">';
+    if(j.status!=='completed'){
+        h+='<button class="jc-btn jc-btn-green" onclick="event.stopPropagation();document._dash.quickComplete(\''+esc(j.id)+'\')">Fullfor</button>';
+        h+='<button class="jc-btn jc-btn-yellow" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\');setTimeout(function(){document._dash.deferOpen=true;document._dash.deferReason=\'\'},300)">Utsett</button>';
     }
-    h += '<button class="jc-btn jc-btn-blue" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\')">Detaljer</button>';
-    h += '</div>';
-    h += '</div>';
+    h+='<button class="jc-btn jc-btn-blue" onclick="event.stopPropagation();document._dash.openJobModal(\''+esc(j.id)+'\')">Detaljer</button>';
+    h+='</div></div>';
     return h;
 }
 
-function dashboard() {
+function dashboard(){
     return {
+        regionId: '{{ selected_region_id or "all" }}',
+        techFilter: '',
+        statusFilter: '',
+        searchFilter: '',
+        showWarnings: false,
         calYear: new Date().getFullYear(),
         calMonth: new Date().getMonth(),
         calWeek: null,
         weekData: {},
         weekDataLoaded: false,
-        calTechFilter: '',
         filterCountText: '',
         modalOpen: false,
         modalTitle: '',
@@ -464,349 +503,378 @@ function dashboard() {
         rescheduleOpen: false,
         rescheduleDate: '',
         subtitleText: '',
+        yearPct: DB.year_pct,
 
-        init() {
-            var now = new Date();
-            this.subtitleText = 'Oppdatert ' + now.toLocaleDateString('nb-NO') + ' kl. ' + now.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
-            this.renderCal();
+        init(){
+            var now=new Date();
+            this.subtitleText='Oppdatert '+now.toLocaleDateString('nb-NO')+' kl. '+now.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
+            // Sync header dropdown with region tabs
+            this.$watch('regionId',()=>{this.techFilter='';this.weekDataLoaded=false;this.weekData={};this.updateUrl();this.updateFilterCount()});
+            this.$watch('techFilter',()=>{this.weekDataLoaded=false;this.weekData={};this.updateFilterCount()});
+            this.updateFilterCount();
         },
 
-        get monthTitle() { return MND[this.calMonth] + ' ' + this.calYear; },
+        // ── Current stats (reactive to regionId) ──
+        get cs(){
+            if(this.regionId==='all')return DB.stats.all;
+            return DB.stats[this.regionId]||{total:0,completed:0,scheduled:0,unscheduled:0,completed_pct:0,scheduled_pct:0,unscheduled_pct:0,total_hours:0};
+        },
 
-        get weekTabsHtml() {
-            var weekVisits = {};
-            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
-            for (var d=1; d<=dim; d++) {
-                var dt = new Date(this.calYear, this.calMonth, d);
-                if (dt.getDay()!==0 && dt.getDay()!==6) {
-                    var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
-                    var wk = getIsoWeek(iso);
-                    if (!weekVisits[wk]) weekVisits[wk] = 0;
-                    var day = CAL_DATA[iso];
-                    if (day) {
-                        if (this.calTechFilter) {
-                            day.techs.forEach(function(t) { if (t.name === this.calTechFilter) weekVisits[wk] += t.visits; }.bind(this));
-                        } else {
-                            weekVisits[wk] += day.visits;
-                        }
+        get statusKlasse(){
+            var pct=this.cs.completed_pct;
+            if(pct>=this.yearPct)return'good';
+            if(pct>=this.yearPct-10)return'ok';
+            return'behind';
+        },
+        get statusTekst(){
+            var pct=this.cs.completed_pct;
+            if(pct>=this.yearPct)return'I rute';
+            if(pct>=this.yearPct-10)return'Nesten i rute';
+            return'Pa etterskudd';
+        },
+
+        // ── Current technicians (reactive to regionId) ──
+        get currentTechs(){
+            if(this.regionId==='all'){
+                var all=[];
+                Object.keys(DB.techs).forEach(function(rid){all=all.concat(DB.techs[rid])});
+                return all.sort(function(a,b){return a.name.localeCompare(b.name)});
+            }
+            return DB.techs[this.regionId]||[];
+        },
+
+        // ── Current calendar data (reactive) ──
+        get currentCal(){
+            if(this.regionId==='all'){
+                var merged={};
+                var self=this;
+                Object.keys(DB.cal).forEach(function(rid){
+                    var rc=DB.cal[rid];
+                    Object.keys(rc).forEach(function(dt){
+                        if(!merged[dt])merged[dt]={visits:0,work_h:0,drive_h:0,techs:[]};
+                        merged[dt].visits+=rc[dt].visits;
+                        merged[dt].work_h+=rc[dt].work_h;
+                        merged[dt].drive_h+=rc[dt].drive_h;
+                        merged[dt].techs=merged[dt].techs.concat(rc[dt].techs);
+                    });
+                });
+                return merged;
+            }
+            return DB.cal[this.regionId]||{};
+        },
+
+        // ── Capacity warnings ──
+        get warnings(){
+            var cal=this.currentCal;
+            var w=[];
+            Object.keys(cal).forEach(function(dt){
+                var day=cal[dt];
+                day.techs.forEach(function(t){
+                    if(t.hours>7.5)w.push({date:dt,tech:t.name,hours:t.hours});
+                });
+            });
+            return w.sort(function(a,b){return a.date.localeCompare(b.date)});
+        },
+        get warningCount(){return this.warnings.length},
+
+        // ── Region / Filter ──
+        setRegion(rid){this.regionId=rid},
+        toggleTech(name){this.techFilter=this.techFilter===name?'':name},
+        updateUrl(){
+            var url=new URL(window.location);
+            if(this.regionId&&this.regionId!=='all')url.searchParams.set('region_id',this.regionId);
+            else url.searchParams.delete('region_id');
+            history.replaceState(null,'',url);
+        },
+
+        get monthTitle(){return MND[this.calMonth]+' '+this.calYear},
+
+        // ── Week tabs ──
+        get weekTabsHtml(){
+            var weekVisits={};
+            var dim=new Date(this.calYear,this.calMonth+1,0).getDate();
+            var cal=this.currentCal;
+            var techF=this.techFilter;
+            for(var d=1;d<=dim;d++){
+                var dt=new Date(this.calYear,this.calMonth,d);
+                if(dt.getDay()!==0&&dt.getDay()!==6){
+                    var iso=this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                    var wk=getIsoWeek(iso);
+                    if(!weekVisits[wk])weekVisits[wk]=0;
+                    var day=cal[iso];
+                    if(day){
+                        if(techF){day.techs.forEach(function(t){if(t.name===techF)weekVisits[wk]+=t.visits})}
+                        else weekVisits[wk]+=day.visits;
                     }
                 }
             }
-            var sorted = Object.keys(weekVisits).map(Number).sort(function(a,b){return a-b;});
-            var self = this;
-            var h = '';
-            sorted.forEach(function(wk) {
-                var cls = self.calWeek === wk ? ' active' : '';
-                var count = weekVisits[wk];
-                h += '<div class="cal-week-tab'+cls+'" onclick="document._dash.selectWeek('+wk+')">Uke '+wk+(count>0?' ('+count+')':'')+'</div>';
+            var sorted=Object.keys(weekVisits).map(Number).sort(function(a,b){return a-b});
+            var self=this;
+            var h='';
+            sorted.forEach(function(wk){
+                var cls=self.calWeek===wk?' active':'';
+                var count=weekVisits[wk];
+                h+='<div class="cal-week-tab'+cls+'" onclick="document._dash.selectWeek('+wk+')">Uke '+wk+(count>0?' ('+count+')':'')+'</div>';
             });
-            if (this.calWeek !== null) {
-                h += '<div class="cal-week-tab reset" onclick="document._dash.selectWeek(null)">Vis hele maneden</div>';
-            }
+            if(this.calWeek!==null)h+='<div class="cal-week-tab reset" onclick="document._dash.selectWeek(null)">Vis hele maneden</div>';
             return h;
         },
 
-        get calViewHtml() {
-            if (this.calWeek === null) return this.renderMonthGrid();
+        get calViewHtml(){
+            if(this.calWeek===null)return this.renderMonthGrid();
             return this.renderWeekView();
         },
 
-        navMonth(delta) {
-            this.calMonth += delta;
-            if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
-            if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
-            this.calWeek = null;
-            this.weekDataLoaded = false;
-            this.weekData = {};
+        navMonth(delta){
+            this.calMonth+=delta;
+            if(this.calMonth<0){this.calMonth=11;this.calYear--}
+            if(this.calMonth>11){this.calMonth=0;this.calYear++}
+            this.calWeek=null;this.weekDataLoaded=false;this.weekData={};
         },
 
-        selectWeek(wk) { this.weekDataLoaded = false; this.weekData = {}; this.calWeek = wk; },
+        selectWeek(wk){this.weekDataLoaded=false;this.weekData={};this.calWeek=wk},
 
-        renderCal() {
-            // Count total visits in calendar
-            var total = 0;
-            var techFilter = this.calTechFilter;
-            Object.keys(CAL_DATA).forEach(function(dt) {
-                var day = CAL_DATA[dt];
-                if (techFilter) {
-                    day.techs.forEach(function(t) { if (t.name === techFilter) total += t.visits; });
-                } else {
-                    total += day.visits;
-                }
+        updateFilterCount(){
+            var cal=this.currentCal;var total=0;var techF=this.techFilter;
+            Object.keys(cal).forEach(function(dt){
+                var day=cal[dt];
+                if(techF){day.techs.forEach(function(t){if(t.name===techF)total+=t.visits})}
+                else total+=day.visits;
             });
-            this.filterCountText = total + ' besok totalt';
+            this.filterCountText=total+' besok totalt';
         },
 
-        getFilteredDay(dateIso) {
-            var day = CAL_DATA[dateIso];
-            if (!day) return {visits:0, hours:0, techs:[]};
-            if (!this.calTechFilter) return {visits:day.visits, hours:+(day.work_h+day.drive_h).toFixed(1), techs:day.techs};
-            var f = this.calTechFilter;
-            var visits=0, hours=0, techs=[];
-            day.techs.forEach(function(t) {
-                if (t.name === f) { visits+=t.visits; hours+=t.hours; techs.push(t); }
-            });
-            return {visits:visits, hours:+hours.toFixed(1), techs:techs};
+        getFilteredDay(dateIso){
+            var cal=this.currentCal;
+            var day=cal[dateIso];
+            if(!day)return{visits:0,hours:0,techs:[]};
+            if(!this.techFilter)return{visits:day.visits,hours:+(day.work_h+day.drive_h).toFixed(1),techs:day.techs};
+            var f=this.techFilter;var visits=0,hours=0,techs=[];
+            day.techs.forEach(function(t){if(t.name===f){visits+=t.visits;hours+=t.hours;techs.push(t)}});
+            return{visits:visits,hours:+hours.toFixed(1),techs:techs};
         },
 
-        renderMonthGrid() {
-            var todayIso = new Date().toISOString().slice(0,10);
-            var h = '<div class="cal-grid">';
-            DAG.forEach(function(d){ h+='<div class="cal-grid-hdr">'+d+'</div>'; });
-            var first = new Date(this.calYear, this.calMonth, 1);
-            var fw = (first.getDay()+6)%7;
-            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
-            for (var e=0; e<fw; e++) h+='<div class="cal-day empty"></div>';
-            for (var d=1; d<=dim; d++) {
-                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
-                var dt = new Date(this.calYear, this.calMonth, d);
-                var wd = (dt.getDay()+6)%7;
-                var isWe = wd>=5;
-                var isHol = HOLIDAYS.hasOwnProperty(iso);
-                var isToday = iso===todayIso;
-                var info = this.getFilteredDay(iso);
-                var cls = '';
-                if (isWe) cls='weekend';
-                else if (isHol) cls='holiday';
-                else if (info.visits>0) cls='color-blue';
-                else cls='color-grey';
-                var wk = getIsoWeek(iso);
-                var click = (isWe||isHol) ? '' : ' onclick="document._dash.selectWeek('+wk+')"';
+        renderMonthGrid(){
+            var todayIso=new Date().toISOString().slice(0,10);
+            var h='<div class="cal-grid">';
+            DAG.forEach(function(d){h+='<div class="cal-grid-hdr">'+d+'</div>'});
+            var first=new Date(this.calYear,this.calMonth,1);
+            var fw=(first.getDay()+6)%7;
+            var dim=new Date(this.calYear,this.calMonth+1,0).getDate();
+            for(var e=0;e<fw;e++)h+='<div class="cal-day empty"></div>';
+            for(var d=1;d<=dim;d++){
+                var iso=this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt=new Date(this.calYear,this.calMonth,d);
+                var wd=(dt.getDay()+6)%7;
+                var isWe=wd>=5;var isHol=HOLIDAYS.hasOwnProperty(iso);var isToday=iso===todayIso;
+                var info=this.getFilteredDay(iso);
+                var cls='';
+                if(isWe)cls='weekend';else if(isHol)cls='holiday';else if(info.visits>0)cls='color-blue';else cls='color-grey';
+                var wk=getIsoWeek(iso);
+                var click=(isWe||isHol)?'':' onclick="document._dash.selectWeek('+wk+')"';
                 h+='<div class="cal-day '+cls+'"'+click+'>';
                 h+='<div class="day-num'+(isToday?' today':'')+'">'+d+'</div>';
-                if (!isWe && !isHol && info.visits>0) {
+                if(!isWe&&!isHol&&info.visits>0){
                     h+='<div class="day-info">'+info.visits+' besok</div>';
                     h+='<div class="day-hours">'+info.hours+'t</div>';
                 }
                 h+='</div>';
             }
-            h+='</div>';
-            return h;
+            h+='</div>';return h;
         },
 
-        renderWeekView() {
-            // Show loading state, then fetch real job data
-            var self = this;
-            if (!this.weekDataLoaded) {
-                this.fetchWeekData();
-                return '<div class="week-loading">Laster ukesvisning...</div>';
-            }
+        renderWeekView(){
+            if(!this.weekDataLoaded){this.fetchWeekData();return'<div class="week-loading">Laster ukesvisning...</div>'}
             return this.renderWeekViewWithData();
         },
 
-        renderWeekViewWithData() {
-            var todayIso = new Date().toISOString().slice(0,10);
-            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
-            var dates = [];
-            for (var d=1; d<=dim; d++) {
-                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
-                var dt = new Date(this.calYear, this.calMonth, d);
-                var wd = (dt.getDay()+6)%7;
-                if (wd<5 && getIsoWeek(iso)===this.calWeek) {
-                    dates.push({day:d, iso:iso, wd:wd, isToday:iso===todayIso});
-                }
+        renderWeekViewWithData(){
+            var todayIso=new Date().toISOString().slice(0,10);
+            var dim=new Date(this.calYear,this.calMonth+1,0).getDate();
+            var dates=[];
+            for(var d=1;d<=dim;d++){
+                var iso=this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt=new Date(this.calYear,this.calMonth,d);
+                var wd=(dt.getDay()+6)%7;
+                if(wd<5&&getIsoWeek(iso)===this.calWeek)dates.push({day:d,iso:iso,wd:wd,isToday:iso===todayIso});
             }
-            var weekDays = [null,null,null,null,null];
-            dates.forEach(function(dd){ weekDays[dd.wd]=dd; });
-            var self = this;
-            var wd = this.weekData || {};
-            var h = '<div class="week-view">';
-            for (var col=0; col<5; col++) {
-                var dd = weekDays[col];
+            var weekDays=[null,null,null,null,null];
+            dates.forEach(function(dd){weekDays[dd.wd]=dd});
+            var self=this;var wd=this.weekData||{};
+            var h='<div class="week-view">';
+            for(var col=0;col<5;col++){
+                var dd=weekDays[col];
                 h+='<div class="week-col">';
-                if (dd) {
-                    var dayData = wd[dd.iso] || {jobs:[], techs:{}};
-                    var dayJobs = dayData.jobs || [];
-                    var dayTechs = dayData.techs || {};
-                    // Apply tech filter
-                    if (self.calTechFilter) {
-                        dayJobs = dayJobs.filter(function(j){ return j.technician === self.calTechFilter; });
-                        var ft = {};
-                        if (dayTechs[self.calTechFilter]) ft[self.calTechFilter] = dayTechs[self.calTechFilter];
-                        dayTechs = ft;
+                if(dd){
+                    var dayData=wd[dd.iso]||{jobs:[],techs:{}};
+                    var dayJobs=dayData.jobs||[];var dayTechs=dayData.techs||{};
+                    // Apply filters
+                    if(self.techFilter)dayJobs=dayJobs.filter(function(j){return j.technician===self.techFilter});
+                    if(self.statusFilter){
+                        if(self.statusFilter==='delayed')dayJobs=dayJobs.filter(function(j){return j.is_delayed});
+                        else dayJobs=dayJobs.filter(function(j){return j.status===self.statusFilter});
                     }
+                    if(self.searchFilter){
+                        var sf=self.searchFilter.toLowerCase();
+                        dayJobs=dayJobs.filter(function(j){
+                            return(j.external_id||'').toLowerCase().indexOf(sf)>=0||(j.address||'').toLowerCase().indexOf(sf)>=0||(j.title||'').toLowerCase().indexOf(sf)>=0||(j.technician||'').toLowerCase().indexOf(sf)>=0;
+                        });
+                    }
+                    if(self.techFilter){var ft={};if(dayTechs[self.techFilter])ft[self.techFilter]=dayTechs[self.techFilter];dayTechs=ft}
                     h+='<div class="week-col-hdr'+(dd.isToday?' today-col':'')+'"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date">'+dd.day+'. '+MND[self.calMonth].toLowerCase()+'</div></div>';
                     h+='<div class="week-col-body">';
-                    if (dayJobs.length===0) {
-                        h+='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Ingen jobber</div>';
-                    }
-                    dayJobs.forEach(function(j) {
-                        h += renderJobCard(j, todayIso);
-                    });
+                    if(dayJobs.length===0)h+='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Ingen jobber</div>';
+                    dayJobs.forEach(function(j){h+=renderJobCard(j,todayIso)});
                     h+='</div>';
-                    // Footer: job count + technician progress bars
                     h+='<div class="week-col-footer">';
                     h+='<div style="font-size:11px;color:#64748b">'+dayJobs.length+' jobb'+(dayJobs.length!==1?'er':'')+'</div>';
-                    Object.keys(dayTechs).forEach(function(tech) {
-                        var t = dayTechs[tech];
-                        var th = t.work_h + t.drive_h;
-                        var pct = Math.min((th/7.5)*100, 100);
-                        var tColor = pct<50?'#16a34a':(pct<80?'#eab308':'#dc2626');
+                    Object.keys(dayTechs).forEach(function(tech){
+                        var t=dayTechs[tech];var th=t.work_h+t.drive_h;
+                        var pct=Math.min((th/7.5)*100,100);
+                        var tColor=pct<50?'#16a34a':(pct<80?'#eab308':'#dc2626');
                         h+='<div style="margin-top:4px">';
                         h+='<div style="font-size:10px;display:flex;justify-content:space-between"><span style="font-weight:600;color:#475569">'+esc(tech)+'</span><span style="color:'+tColor+';font-weight:600">'+th.toFixed(1)+'t</span></div>';
                         h+='<div class="week-cap-bar"><div class="week-cap-fill" style="width:'+pct.toFixed(0)+'%;background:'+tColor+'"></div></div>';
                         h+='</div>';
                     });
                     h+='</div>';
-                } else {
+                }else{
                     h+='<div class="week-col-hdr"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date" style="color:#94a3b8">-</div></div>';
                     h+='<div class="week-col-body"><div style="text-align:center;color:#d1d5db;font-size:12px;padding:20px 0">Annen maned</div></div>';
                     h+='<div class="week-col-footer"></div>';
                 }
                 h+='</div>';
             }
-            h+='</div>';
-            return h;
+            h+='</div>';return h;
         },
 
-        async fetchWeekData() {
-            // Determine Monday-Friday of selected week
-            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
-            var weekDates = [];
-            for (var d=1; d<=dim; d++) {
-                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
-                var dt = new Date(this.calYear, this.calMonth, d);
-                var wd = (dt.getDay()+6)%7;
-                if (wd<5 && getIsoWeek(iso)===this.calWeek) {
-                    weekDates.push(iso);
+        async fetchWeekData(){
+            var dim=new Date(this.calYear,this.calMonth+1,0).getDate();
+            var weekDates=[];
+            for(var d=1;d<=dim;d++){
+                var iso=this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt=new Date(this.calYear,this.calMonth,d);
+                var wd=(dt.getDay()+6)%7;
+                if(wd<5&&getIsoWeek(iso)===this.calWeek)weekDates.push(iso);
+            }
+            if(weekDates.length===0){this.weekDataLoaded=true;this.weekData={};return}
+            var monday=new Date(weekDates[0]+'T12:00:00');
+            var mondayWd=(monday.getDay()+6)%7;
+            monday.setDate(monday.getDate()-mondayWd);
+            var friday=new Date(monday);friday.setDate(friday.getDate()+4);
+            var dateFrom=monday.toISOString().slice(0,10);
+            var dateTo=friday.toISOString().slice(0,10);
+
+            // For "all" regions, fetch each region and merge
+            var regionIds=[];
+            if(this.regionId==='all'){regionIds=Object.keys(REGION_MAP)}
+            else{regionIds=[this.regionId]}
+
+            var merged={};
+            try{
+                for(var i=0;i<regionIds.length;i++){
+                    var rid=regionIds[i];
+                    var res=await fetch('/app/dashboard/week-data?region_id='+rid+'&date_from='+dateFrom+'&date_to='+dateTo,{
+                        headers:{'Authorization':'Bearer '+getCookie('access_token')}
+                    });
+                    var data=await res.json();
+                    var days=data.days||{};
+                    Object.keys(days).forEach(function(dt){
+                        if(!merged[dt])merged[dt]={jobs:[],techs:{}};
+                        merged[dt].jobs=merged[dt].jobs.concat(days[dt].jobs||[]);
+                        var techs=days[dt].techs||{};
+                        Object.keys(techs).forEach(function(tn){
+                            if(!merged[dt].techs[tn])merged[dt].techs[tn]={work_h:0,drive_h:0,visits:0};
+                            merged[dt].techs[tn].work_h+=techs[tn].work_h;
+                            merged[dt].techs[tn].drive_h+=techs[tn].drive_h;
+                            merged[dt].techs[tn].visits+=techs[tn].visits;
+                        });
+                    });
                 }
-            }
-            if (weekDates.length === 0) { this.weekDataLoaded = true; this.weekData = {}; return; }
-            // Extend to full Mon-Fri even across month boundaries
-            var monday = new Date(weekDates[0]+'T12:00:00');
-            var mondayWd = (monday.getDay()+6)%7;
-            monday.setDate(monday.getDate() - mondayWd);
-            var friday = new Date(monday);
-            friday.setDate(friday.getDate() + 4);
-            var dateFrom = monday.toISOString().slice(0,10);
-            var dateTo = friday.toISOString().slice(0,10);
-
-            var regionId = REGION_ID;
-            if (!regionId) { this.weekDataLoaded = true; this.weekData = {}; return; }
-
-            try {
-                var res = await fetch('/app/dashboard/week-data?region_id='+regionId+'&date_from='+dateFrom+'&date_to='+dateTo, {
-                    headers: {'Authorization': 'Bearer '+getCookie('access_token')}
-                });
-                var data = await res.json();
-                this.weekData = data.days || {};
-            } catch(e) {
-                this.weekData = {};
-            }
-            this.weekDataLoaded = true;
+                this.weekData=merged;
+            }catch(e){this.weekData={}}
+            this.weekDataLoaded=true;
         },
 
         // ── Job Modal ──
-        async openJobModal(jobId) {
-            this.modalJobId = jobId;
-            this.modalTitle = 'Laster...';
-            this.modalBody = '<div style="text-align:center;padding:30px;color:#64748b"><div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .6s linear infinite"></div></div>';
-            this.modalOpen = true;
-            try {
-                var res = await fetch('/jobs/'+jobId+'/detail', {headers:{'Authorization':'Bearer '+getCookie('access_token')}});
-                var job = await res.json();
-                this.modalTitle = 'Jobb: ' + (job.title || jobId);
+        async openJobModal(jobId){
+            this.modalJobId=jobId;this.modalTitle='Laster...';
+            this.modalBody='<div style="text-align:center;padding:30px;color:#64748b"><div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .6s linear infinite"></div></div>';
+            this.modalOpen=true;
+            try{
+                var res=await fetch('/jobs/'+jobId+'/detail',{headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                var job=await res.json();
+                this.modalTitle='Jobb: '+(job.title||jobId);
                 this.renderModal(job);
-                // Load history
-                var hres = await fetch('/jobs/'+jobId+'/history', {headers:{'Authorization':'Bearer '+getCookie('access_token')}});
-                var hist = await hres.json();
-                if (hist.length > 0) {
-                    var hh = '<div class="history-section"><h4>Endringshistorikk</h4>';
-                    hist.forEach(function(e) { hh+='<div class="history-item"><span style="color:#94a3b8">'+esc(e.created_at)+'</span> &mdash; '+esc(e.detail)+'</div>'; });
-                    hh += '</div>';
-                    this.modalBody += hh;
+                var hres=await fetch('/jobs/'+jobId+'/history',{headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                var hist=await hres.json();
+                if(hist.length>0){
+                    var hh='<div class="history-section"><h4>Endringshistorikk</h4>';
+                    hist.forEach(function(e){hh+='<div class="history-item"><span style="color:#94a3b8">'+esc(e.created_at)+'</span> &mdash; '+esc(e.detail)+'</div>'});
+                    hh+='</div>';this.modalBody+=hh;
                 }
-            } catch(e) {
-                this.modalBody = '<p style="color:#dc2626">Feil: '+esc(e.message)+'</p>';
-            }
+            }catch(e){this.modalBody='<p style="color:#dc2626">Feil: '+esc(e.message)+'</p>'}
         },
-
-        renderModal(job) {
-            var statusMap = {completed:'Fullfort', scheduled:'Planlagt', unscheduled:'Uplanlagt', in_progress:'Under arbeid', cancelled:'Kansellert'};
-            var statusCls = {completed:'status-fullfort', scheduled:'status-planlagt', unscheduled:'status-uplanlagt'};
-            var h = '<div class="detail-grid">';
-            h += '<div class="dl">Tittel</div><div class="dv">'+esc(job.title||'-')+'</div>';
-            h += '<div class="dl">Status</div><div class="dv"><span class="status-badge '+(statusCls[job.status]||'')+'">'+(statusMap[job.status]||job.status)+'</span></div>';
-            if (job.address) h += '<div class="dl">Adresse</div><div class="dv">'+esc(job.address)+' '+esc(job.postal_code||'')+'</div>';
-            if (job.service_type) h += '<div class="dl">Systemtype</div><div class="dv">'+esc(job.service_type)+'</div>';
-            if (job.technician_name) h += '<div class="dl">Tekniker</div><div class="dv">'+esc(job.technician_name)+'</div>';
-            if (job.created_at) h += '<div class="dl">Opprettet</div><div class="dv">'+esc(job.created_at)+'</div>';
-            h += '</div>';
-            // Actions
-            var isComplete = job.status === 'completed';
-            h += '<div class="modal-actions">';
-            if (!isComplete) {
-                h += '<button class="btn btn-green" onclick="document._dash.completeJob()">Marker fullfort</button>';
-                h += '<button class="btn btn-yellow" onclick="document._dash.deferOpen=true;document._dash.deferReason=\'\'">Utsett</button>';
-                h += '<button class="btn btn-blue" onclick="document._dash.rescheduleOpen=true;document._dash.rescheduleDate=\'\'">Endre dato</button>';
-            } else {
-                h += '<span style="color:#ec4899;font-weight:600">&#10003; Fullfort</span>';
+        renderModal(job){
+            var statusMap={completed:'Fullfort',scheduled:'Planlagt',unscheduled:'Uplanlagt',in_progress:'Under arbeid',cancelled:'Kansellert'};
+            var statusCls={completed:'status-fullfort',scheduled:'status-planlagt',unscheduled:'status-uplanlagt'};
+            var h='<div class="detail-grid">';
+            h+='<div class="dl">Tittel</div><div class="dv">'+esc(job.title||'-')+'</div>';
+            h+='<div class="dl">Status</div><div class="dv"><span class="status-badge '+(statusCls[job.status]||'')+'">'+(statusMap[job.status]||job.status)+'</span></div>';
+            if(job.address)h+='<div class="dl">Adresse</div><div class="dv">'+esc(job.address)+' '+esc(job.postal_code||'')+'</div>';
+            if(job.service_type)h+='<div class="dl">Systemtype</div><div class="dv">'+esc(job.service_type)+'</div>';
+            if(job.technician_name)h+='<div class="dl">Tekniker</div><div class="dv">'+esc(job.technician_name)+'</div>';
+            if(job.created_at)h+='<div class="dl">Opprettet</div><div class="dv">'+esc(job.created_at)+'</div>';
+            h+='</div>';
+            var isComplete=job.status==='completed';
+            h+='<div class="modal-actions">';
+            if(!isComplete){
+                h+='<button class="btn btn-green" onclick="document._dash.completeJob()">Marker fullfort</button>';
+                h+='<button class="btn btn-yellow" onclick="document._dash.deferOpen=true;document._dash.deferReason=\'\'">Utsett</button>';
+                h+='<button class="btn btn-blue" onclick="document._dash.rescheduleOpen=true;document._dash.rescheduleDate=\'\'">Endre dato</button>';
+            }else{
+                h+='<span style="color:#ec4899;font-weight:600">&#10003; Fullfort</span>';
             }
-            h += '<button class="btn btn-outline" onclick="document._dash.closeModal()">Lukk</button>';
-            h += '</div>';
-            this.modalBody = h;
+            h+='<button class="btn btn-outline" onclick="document._dash.closeModal()">Lukk</button>';
+            h+='</div>';this.modalBody=h;
         },
-
-        closeModal() { this.modalOpen = false; this.modalJobId = null; },
-
-        async completeJob() {
-            if (!this.modalJobId) return;
-            try {
-                var res = await fetch('/jobs/'+this.modalJobId+'/complete', {method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token')}});
-                if (res.ok) { showToast('Jobb markert som fullfort','success'); this.closeModal(); setTimeout(function(){location.reload()},500); }
+        closeModal(){this.modalOpen=false;this.modalJobId=null},
+        async completeJob(){
+            if(!this.modalJobId)return;
+            try{
+                var res=await fetch('/jobs/'+this.modalJobId+'/complete',{method:'POST',headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                if(res.ok){showToast('Jobb markert som fullfort','success');this.closeModal();setTimeout(function(){location.reload()},500)}
                 else showToast('Feil ved fullfoering','error');
-            } catch(e) { showToast('Feil: '+e.message,'error'); }
+            }catch(e){showToast('Feil: '+e.message,'error')}
         },
-
-        async confirmDefer() {
-            if (!this.modalJobId || !this.deferReason) return;
-            try {
-                var res = await fetch('/jobs/'+this.modalJobId+'/defer', {
-                    method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},
-                    body: JSON.stringify({reason: this.deferReason})
-                });
-                if (res.ok) { showToast('Jobb utsatt','success'); this.deferOpen=false; this.closeModal(); setTimeout(function(){location.reload()},500); }
+        async confirmDefer(){
+            if(!this.modalJobId||!this.deferReason)return;
+            try{
+                var res=await fetch('/jobs/'+this.modalJobId+'/defer',{method:'POST',headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},body:JSON.stringify({reason:this.deferReason})});
+                if(res.ok){showToast('Jobb utsatt','success');this.deferOpen=false;this.closeModal();setTimeout(function(){location.reload()},500)}
                 else showToast('Feil ved utsettelse','error');
-            } catch(e) { showToast('Feil: '+e.message,'error'); }
+            }catch(e){showToast('Feil: '+e.message,'error')}
         },
-
-        async confirmReschedule() {
-            if (!this.modalJobId || !this.rescheduleDate) return;
-            try {
-                var res = await fetch('/jobs/'+this.modalJobId+'/reschedule', {
-                    method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},
-                    body: JSON.stringify({new_date: this.rescheduleDate})
-                });
-                if (res.ok) { showToast('Dato endret','success'); this.rescheduleOpen=false; this.closeModal(); setTimeout(function(){location.reload()},500); }
+        async confirmReschedule(){
+            if(!this.modalJobId||!this.rescheduleDate)return;
+            try{
+                var res=await fetch('/jobs/'+this.modalJobId+'/reschedule',{method:'POST',headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},body:JSON.stringify({new_date:this.rescheduleDate})});
+                if(res.ok){showToast('Dato endret','success');this.rescheduleOpen=false;this.closeModal();setTimeout(function(){location.reload()},500)}
                 else showToast('Feil ved datoendring','error');
-            } catch(e) { showToast('Feil: '+e.message,'error'); }
+            }catch(e){showToast('Feil: '+e.message,'error')}
         },
-
-        async quickComplete(jobId) {
-            try {
-                var res = await fetch('/jobs/'+jobId+'/complete', {method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token')}});
-                if (res.ok) { showToast('Jobb markert som fullfort','success'); this.weekDataLoaded=false; this.weekData={}; setTimeout(function(){location.reload()},500); }
+        async quickComplete(jobId){
+            try{
+                var res=await fetch('/jobs/'+jobId+'/complete',{method:'POST',headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                if(res.ok){showToast('Jobb markert som fullfort','success');this.weekDataLoaded=false;this.weekData={};setTimeout(function(){location.reload()},500)}
                 else showToast('Feil ved fullfoering','error');
-            } catch(e) { showToast('Feil: '+e.message,'error'); }
+            }catch(e){showToast('Feil: '+e.message,'error')}
         },
     };
 }
 
-// Expose dash instance for onclick handlers
-document.addEventListener('alpine:init', function() {
-    Alpine.data('dashboard', dashboard);
-});
-document.addEventListener('alpine:initialized', function() {
-    // Store ref for onclick handlers in rendered HTML
-    setTimeout(function(){
-        var el = document.querySelector('[x-data]');
-        if (el && el._x_dataStack) document._dash = el._x_dataStack[0];
-    }, 100);
-});
-
-function getCookie(name) {
-    var v = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
-    return v ? v.pop() : '';
-}
+document.addEventListener('alpine:init',function(){Alpine.data('dashboard',dashboard)});
+document.addEventListener('alpine:initialized',function(){setTimeout(function(){var el=document.querySelector('[x-data]');if(el&&el._x_dataStack)document._dash=el._x_dataStack[0]},100)});
+function getCookie(name){var v=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return v?v.pop():''}
 </script>
 {% endblock %}

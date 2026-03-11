@@ -140,7 +140,7 @@ app/
   templates/
     base.html            # Layout med sidebar-nav, Alpine.js, HTMX
     login.html           # Login-side
-    dashboard.html       # Hoved-dashboard (7 seksjoner + ukesvisning med jobb-kort)
+    dashboard.html       # Hoved-dashboard (8 seksjoner, alle regioner preloaded, reaktiv)
     regions/
       list.html          # Region-liste
       _table.html        # Region-tabell (HTMX-partial)
@@ -468,25 +468,41 @@ else:                       # Ikke plass -> neste dag
 
 ## Dashboard (v2)
 
-Dashboardet (`/app/dashboard`) replikerer v1-layouten med 7 seksjoner:
-1. **Header** — mork gradient (#1a1a2e -> #16213e)
-2. **KPI-grid** — Totalt, Fullfort (#ec4899), Planlagt (#2563eb), Uplanlagt (#ea580c)
-3. **Arets fremgang** — progress-bar med rod dato-markor
-4. **Fordeling per tekniker** — 2-kolonne grid med stats og progress
-5. **Filter-bar** — tekniker-dropdown
-6. **Kalender** — manedsgrid + ukesvisning med jobb-kort
-7. **Job-modal** — detaljer + fullfor/utsett/endre dato
+Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for instant bytte.
 
-### Ukesvisning (implementert)
-- Klikk pa dato i manedskalender -> apner ukesvisning for den uken
-- 5 kolonner (Man-Fre), henter data fra `GET /app/dashboard/week-data`
-- **Uke-tabs** med jobbtelling per uke (f.eks. "Uke 10 (12)")
-- **Jobb-kort** per besok: ticket, adresse, tekniker, SLA-timer, status-badge
-- **Status-badges:** Fullfort (rosa), Planlagt (bla), Forsinket (rod), Uplanlagt (oransje)
-- **Fargede venstrekanter:** gron=fullfort, bla=planlagt, gul=forsinket, oransje=uplanlagt
-- **Knapper:** Fullfor (gron) + Utsett (gul) + Detaljer (bla). Fulforte viser bare Detaljer
-- **+Xd/-Xd badges:** viser dager for/etter plan for fulforte jobber (gron/oransje)
-- **Tekniker-progress-bars** per dag under jobbene: <50% gron, 50-80% gul, >80% rod
+### Dataflyt
+- Backend: batch-queries for KPI, tech-stats, kalender for ALLE regioner i en request
+- Data sendt som `dashboard_json` (stats per region, techs per region, cal per region)
+- Frontend: Alpine.js computed properties (`cs`, `currentTechs`, `currentCal`) reagerer pa `regionId`
+- Ingen page reload ved region/tekniker-bytte — alt filtreres client-side
+- Ukesvisning henter detaljdata via `GET /app/dashboard/week-data`
+
+### Layout (8 seksjoner)
+1. **Header** — gradient + region-dropdown + tekniker-dropdown + sok + bjelle-ikon
+2. **Region-tabs** — Alle | Stavanger | Oslo | Bergen | Drammen | Innlandet | Ostfold
+3. **KPI-grid** — Totalt, Fullfort (#ec4899), Planlagt (#2563eb), Uplanlagt (#ea580c) — reaktiv
+4. **Arets fremgang** — progress-bar med rod dato-markor — reaktiv
+5. **Tekniker-grid** — klikkbare kort (velger tekniker-filter), 2-kolonne, viser region ved "Alle"
+6. **Filter-bar** — tekniker + status (fullfort/planlagt/uplanlagt/forsinket) + sok
+7. **Kalender** — manedsgrid + ukesvisning med jobb-kort, filtreres av alle filtre
+8. **Job-modal** — detaljer + fullfor/utsett/endre dato
+
+### Kapasitetsvarsler (bjelle-ikon)
+- Beregnes fra kalenderdata: tekniker-dager med >7.5t arbeid+reise
+- Viser antall varsler som rott badge pa bjelle-ikonet
+- Klikk apner panel med detaljer (dato, tekniker, timer)
+
+### Ukesvisning
+- Henter data fra `GET /app/dashboard/week-data` per region
+- For "Alle": henter alle regioner og merger
+- Filtreres av tekniker, status og sok-felt
+- **Jobb-kort:** ticket, adresse, tekniker, SLA-timer, status-badge, +Xd/-Xd badges
+- **Knapper:** Fullfor + Utsett + Detaljer
+- **Tekniker-progress-bars** per dag: <50% gron, 50-80% gul, >80% rod
+
+### URL-persistens
+- `?region_id=<uuid>` husker valgt region ved refresh
+- `history.replaceState` oppdaterer URL uten reload
 
 ### CSS-fargepalett (identisk med v1)
 - Background: `#f0f2f5`
@@ -494,6 +510,7 @@ Dashboardet (`/app/dashboard`) replikerer v1-layouten med 7 seksjoner:
 - Fullfort: `#ec4899`
 - Planlagt: `#2563eb`
 - Uplanlagt: `#ea580c`
+- Forsinket: `#ef4444`
 - Kort: hvit, `border-radius: 10px`, `box-shadow: 0 1px 3px rgba(0,0,0,.06)`
 
 ## Implementeringsstatus
