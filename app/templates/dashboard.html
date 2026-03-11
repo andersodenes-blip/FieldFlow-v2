@@ -125,6 +125,7 @@
 .week-col-hdr .wc-day{font-size:12px;font-weight:600;color:#475569}
 .week-col-hdr .wc-date{font-size:14px;font-weight:700;color:#1a1a2e}
 .week-col-hdr.today-col{background:#eff6ff;border-bottom-color:#93c5fd}
+.week-col.selected-col{border-color:#3b82f6;background:#eff6ff;box-shadow:0 0 0 2px rgba(59,130,246,.25)}
 .week-col-body{flex:1;padding:6px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:500px}
 .week-col-footer{padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0}
 .week-cap-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
@@ -490,6 +491,7 @@ function dashboard(){
         calYear: new Date().getFullYear(),
         calMonth: new Date().getMonth(),
         calWeek: null,
+        selectedDay: null,
         weekData: {},
         weekDataLoaded: false,
         filterCountText: '',
@@ -509,7 +511,7 @@ function dashboard(){
             var now=new Date();
             this.subtitleText='Oppdatert '+now.toLocaleDateString('nb-NO')+' kl. '+now.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
             // Sync header dropdown with region tabs
-            this.$watch('regionId',()=>{this.techFilter='';this.weekDataLoaded=false;this.weekData={};this.updateUrl();this.updateFilterCount()});
+            this.$watch('regionId',()=>{this.techFilter='';this.selectedDay=null;this.weekDataLoaded=false;this.weekData={};this.updateUrl();this.updateFilterCount()});
             this.$watch('techFilter',()=>{this.weekDataLoaded=false;this.weekData={};this.updateFilterCount()});
             this.updateFilterCount();
         },
@@ -629,10 +631,15 @@ function dashboard(){
             this.calMonth+=delta;
             if(this.calMonth<0){this.calMonth=11;this.calYear--}
             if(this.calMonth>11){this.calMonth=0;this.calYear++}
-            this.calWeek=null;this.weekDataLoaded=false;this.weekData={};
+            this.calWeek=null;this.selectedDay=null;this.weekDataLoaded=false;this.weekData={};
         },
 
-        selectWeek(wk){this.weekDataLoaded=false;this.weekData={};this.calWeek=wk},
+        selectDay(iso){
+            this.weekDataLoaded=false;this.weekData={};
+            if(iso===null){this.calWeek=null;this.selectedDay=null;return}
+            this.calWeek=getIsoWeek(iso);this.selectedDay=iso;
+        },
+        selectWeek(wk){this.weekDataLoaded=false;this.weekData={};this.calWeek=wk;this.selectedDay=null},
 
         updateFilterCount(){
             var cal=this.currentCal;var total=0;var techF=this.techFilter;
@@ -671,7 +678,7 @@ function dashboard(){
                 var cls='';
                 if(isWe)cls='weekend';else if(isHol)cls='holiday';else if(info.visits>0)cls='color-blue';else cls='color-grey';
                 var wk=getIsoWeek(iso);
-                var click=(isWe||isHol)?'':' onclick="document._dash.selectWeek('+wk+')"';
+                var click=(isWe||isHol)?'':' onclick="document._dash.selectDay(\''+iso+'\')"';
                 h+='<div class="cal-day '+cls+'"'+click+'>';
                 h+='<div class="day-num'+(isToday?' today':'')+'">'+d+'</div>';
                 if(!isWe&&!isHol&&info.visits>0){
@@ -701,10 +708,12 @@ function dashboard(){
             var weekDays=[null,null,null,null,null];
             dates.forEach(function(dd){weekDays[dd.wd]=dd});
             var self=this;var wd=this.weekData||{};
+            var selDay=self.selectedDay;
             var h='<div class="week-view">';
             for(var col=0;col<5;col++){
                 var dd=weekDays[col];
-                h+='<div class="week-col">';
+                var isSel=dd&&selDay&&dd.iso===selDay;
+                h+='<div class="week-col'+(isSel?' selected-col':'')+'"'+(isSel?' id="selected-day-col"':'')+'>';
                 if(dd){
                     var dayData=wd[dd.iso]||{jobs:[],techs:{}};
                     var dayJobs=dayData.jobs||[];var dayTechs=dayData.techs||{};
@@ -745,7 +754,12 @@ function dashboard(){
                 }
                 h+='</div>';
             }
-            h+='</div>';return h;
+            h+='</div>';
+            // "Vis hele maneden" button
+            h+='<div style="text-align:center;margin-top:12px"><button class="cal-nav-btn" onclick="document._dash.selectDay(null)" style="font-size:13px">&larr; Vis hele maneden</button></div>';
+            // Scroll to selected day after render
+            if(selDay){setTimeout(function(){var el=document.getElementById('selected-day-col');if(el)el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})},50)}
+            return h;
         },
 
         async fetchWeekData(){

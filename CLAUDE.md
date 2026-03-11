@@ -496,6 +496,10 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 - Henter data fra `GET /app/dashboard/week-data` per region
 - For "Alle": henter alle regioner og merger
 - Filtreres av tekniker, status og sok-felt
+- **Klikk pa dato** i manedsgrid -> apner ukesvisning + markerer valgt dag (bla ramme/bakgrunn)
+- **Auto-scroll** til markert kolonne (`scrollIntoView` med smooth behavior)
+- **"Vis hele maneden"-knapp** under ukesvisningen (tilbake til manedsgrid)
+- `selectDay(iso)` setter bade `calWeek` og `selectedDay`; `selectWeek(wk)` kun uke uten markering
 - **Jobb-kort:** ticket, adresse, tekniker, SLA-timer, status-badge, +Xd/-Xd badges
 - **Knapper:** Fullfor + Utsett + Detaljer
 - **Tekniker-progress-bars** per dag: <50% gron, 50-80% gul, >80% rod
