@@ -480,10 +480,12 @@ Dashboardet (`/app/dashboard`) replikerer v1-layouten med 7 seksjoner:
 ### Ukesvisning (implementert)
 - Klikk pa dato i manedskalender -> apner ukesvisning for den uken
 - 5 kolonner (Man-Fre), henter data fra `GET /app/dashboard/week-data`
+- **Uke-tabs** med jobbtelling per uke (f.eks. "Uke 10 (12)")
 - **Jobb-kort** per besok: ticket, adresse, tekniker, SLA-timer, status-badge
 - **Status-badges:** Fullfort (rosa), Planlagt (bla), Forsinket (rod), Uplanlagt (oransje)
 - **Fargede venstrekanter:** gron=fullfort, bla=planlagt, gul=forsinket, oransje=uplanlagt
 - **Knapper:** Fullfor (gron) + Utsett (gul) + Detaljer (bla). Fulforte viser bare Detaljer
+- **+Xd/-Xd badges:** viser dager for/etter plan for fulforte jobber (gron/oransje)
 - **Tekniker-progress-bars** per dag under jobbene: <50% gron, 50-80% gul, >80% rod
 
 ### CSS-fargepalett (identisk med v1)
@@ -519,8 +521,15 @@ Dashboardet (`/app/dashboard`) replikerer v1-layouten med 7 seksjoner:
 - Backup/eksport-funksjon
 - Rapporter og statistikk-side
 - Kunde-detaljside (kun liste eksisterer)
-- Multi-dag jobb-visning i ukesvisning (+Xd/-Xd badges)
+- Multi-dag jobb-splitting i ukesvisning (dag X/Y badges)
 - Smart planlegging (5 beste datoforslag) — kun i v1
+- Kapasitetsvarsler (bjelle-ikon med proaktive advarsler)
+- Kryssregion-forslag (flytt jobber til nabolag-tekniker)
+- ICS kalender-eksport + e-postutsendelse
+- Global optimering (MOVE/SWAP hill-climbing)
+- Territory-rapport og belastningsanalyse
+- Bompengeestimering fra NVDB API
+- Frie dager per tekniker-visning
 
 ## Nyttige scripts
 

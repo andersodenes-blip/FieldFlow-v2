@@ -301,6 +301,7 @@ async def dashboard_week_data(
             RouteVisit.estimated_drive_minutes,
             RouteVisit.sequence_order,
             ScheduledVisit.scheduled_date,
+            Job.updated_at.label("job_updated_at"),
         )
         .select_from(RouteVisit)
         .join(Route, RouteVisit.route_id == Route.id)
@@ -346,6 +347,8 @@ async def dashboard_week_data(
             "sla_hours": float(row.sla_hours) if row.sla_hours else 0,
             "work_hours": float(row.estimated_work_hours) if row.estimated_work_hours else 0,
             "drive_minutes": int(row.estimated_drive_minutes) if row.estimated_drive_minutes else 0,
+            "scheduled_date": row.route_date.isoformat(),
+            "updated_at": row.job_updated_at.isoformat() if row.job_updated_at else None,
         })
 
         # Accumulate per-tech hours

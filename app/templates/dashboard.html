@@ -424,7 +424,16 @@ function renderJobCard(j, todayIso) {
     h += '<div class="jc-ticket">'+esc(ticket)+'</div>';
     h += '<div class="jc-addr">'+esc(j.address || '-')+' '+esc(j.postal_code || '')+'</div>';
     h += '<div class="jc-row"><span class="jc-tech">'+esc(j.technician || '-')+'</span><span class="jc-hours">'+(j.sla_hours ? j.sla_hours.toFixed(1) : '-')+'t</span></div>';
-    h += '<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span></div>';
+    h += '<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span>';
+    // +Xd/-Xd badge for completed jobs
+    if (j.status === 'completed' && j.scheduled_date && j.updated_at) {
+        var planMs = new Date(j.scheduled_date+'T00:00:00').getTime();
+        var doneMs = new Date(j.updated_at.slice(0,10)+'T00:00:00').getTime();
+        var diffD = Math.round((doneMs - planMs) / 86400000);
+        if (diffD > 0) h += '<span style="font-size:10px;color:#ea580c;margin-left:6px;font-weight:600">+'+diffD+'d</span>';
+        else if (diffD < 0) h += '<span style="font-size:10px;color:#16a34a;margin-left:6px;font-weight:600">'+diffD+'d</span>';
+    }
+    h += '</div>';
     h += '<div class="jc-actions">';
     if (j.status !== 'completed') {
         h += '<button class="jc-btn jc-btn-green" onclick="event.stopPropagation();document._dash.quickComplete(\''+esc(j.id)+'\')">Fullfor</button>';
@@ -465,20 +474,31 @@ function dashboard() {
         get monthTitle() { return MND[this.calMonth] + ' ' + this.calYear; },
 
         get weekTabsHtml() {
-            var weeks = new Set();
+            var weekVisits = {};
             var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
             for (var d=1; d<=dim; d++) {
                 var dt = new Date(this.calYear, this.calMonth, d);
                 if (dt.getDay()!==0 && dt.getDay()!==6) {
-                    weeks.add(getIsoWeek(this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d)));
+                    var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                    var wk = getIsoWeek(iso);
+                    if (!weekVisits[wk]) weekVisits[wk] = 0;
+                    var day = CAL_DATA[iso];
+                    if (day) {
+                        if (this.calTechFilter) {
+                            day.techs.forEach(function(t) { if (t.name === this.calTechFilter) weekVisits[wk] += t.visits; }.bind(this));
+                        } else {
+                            weekVisits[wk] += day.visits;
+                        }
+                    }
                 }
             }
-            var sorted = Array.from(weeks).sort(function(a,b){return a-b;});
+            var sorted = Object.keys(weekVisits).map(Number).sort(function(a,b){return a-b;});
             var self = this;
             var h = '';
             sorted.forEach(function(wk) {
                 var cls = self.calWeek === wk ? ' active' : '';
-                h += '<div class="cal-week-tab'+cls+'" onclick="document._dash.selectWeek('+wk+')">Uke '+wk+'</div>';
+                var count = weekVisits[wk];
+                h += '<div class="cal-week-tab'+cls+'" onclick="document._dash.selectWeek('+wk+')">Uke '+wk+(count>0?' ('+count+')':'')+'</div>';
             });
             if (this.calWeek !== null) {
                 h += '<div class="cal-week-tab reset" onclick="document._dash.selectWeek(null)">Vis hele maneden</div>';
