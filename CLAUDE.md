@@ -446,6 +446,12 @@ Params: `page` (default 1), `page_size` (default 20, max 100), `sort_by`, `sort_
 travel_minutes = (haversine_km * correction_factor / 30 km/h) * 60 + 10 min parking
 ```
 
+### Visning av timer (frontend)
+- Alle timer-verdier rundes OPP til naermeste 0.5 time for visning
+- Formel: `math.ceil(hours * 2) / 2`
+- Gjelder: jobb-kort, tekniker-progress-bars, KPI-kort, kalender
+- Hjelpefunksjon: `_round_up_half()` i `frontend.py`
+
 ### SLA-timer formel
 ```
 sla_hours = round_up(cost / 2 / 1450, nearest 0.5)

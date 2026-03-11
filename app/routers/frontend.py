@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
 import json
+import math
 import uuid
 
 from datetime import date, timedelta
@@ -29,6 +30,11 @@ from app.services.route_planning_service import get_norwegian_holidays
 
 router = APIRouter(prefix="/app", tags=["frontend"])
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _round_up_half(hours: float) -> float:
+    """Round up to nearest 0.5 hour."""
+    return math.ceil(hours * 2) / 2
 
 
 async def _get_user_from_cookie(request: Request, db: AsyncSession) -> User | None:
@@ -148,11 +154,11 @@ async def dashboard(
     all_hours = 0.0
     for row in hours_result.all():
         rid = region_name_to_id.get(row.city)
-        h = round(float(row.hours), 1)
+        h = _round_up_half(float(row.hours))
         all_hours += h
         if rid and rid in region_stats:
             region_stats[rid]["total_hours"] = h
-    all_stats["total_hours"] = round(all_hours, 1)
+    all_stats["total_hours"] = _round_up_half(all_hours)
 
     # ── 3. Technician stats (batch queries) ──
     tech_result = await db.execute(
@@ -200,7 +206,7 @@ async def dashboard(
     tech_hours: dict[str, dict] = {}
     for row in tech_hours_result.all():
         tech_hours[str(row.technician_id)] = {
-            "work_h": round(float(row.work_h), 1),
+            "work_h": _round_up_half(float(row.work_h)),
             "drive_h": round(float(row.drive_min) / 60.0, 1),
         }
 
@@ -253,12 +259,12 @@ async def dashboard(
         if dt_key not in region_cal[rid]:
             region_cal[rid][dt_key] = {"visits": 0, "work_h": 0.0, "drive_h": 0.0, "techs": []}
         region_cal[rid][dt_key]["visits"] += row.visit_count
-        region_cal[rid][dt_key]["work_h"] += float(row.work_h)
+        region_cal[rid][dt_key]["work_h"] += _round_up_half(float(row.work_h))
         region_cal[rid][dt_key]["drive_h"] += float(row.drive_min) / 60.0
         region_cal[rid][dt_key]["techs"].append({
             "name": row.tech_name,
             "visits": row.visit_count,
-            "hours": round(float(row.work_h) + float(row.drive_min) / 60.0, 1),
+            "hours": round(_round_up_half(float(row.work_h)) + float(row.drive_min) / 60.0, 1),
         })
 
     # ── Year progress ──
@@ -413,7 +419,7 @@ async def dashboard_week_data(
             "is_delayed": is_delayed,
             "technician": row.tech_name,
             "sla_hours": float(row.sla_hours) if row.sla_hours else 0,
-            "work_hours": float(row.estimated_work_hours) if row.estimated_work_hours else 0,
+            "work_hours": _round_up_half(float(row.estimated_work_hours)) if row.estimated_work_hours else 0,
             "drive_minutes": int(row.estimated_drive_minutes) if row.estimated_drive_minutes else 0,
             "scheduled_date": row.route_date.isoformat(),
             "updated_at": row.job_updated_at.isoformat() if row.job_updated_at else None,
@@ -425,7 +431,7 @@ async def dashboard_week_data(
         tech = row.tech_name
         if tech not in days[dt_key]["techs"]:
             days[dt_key]["techs"][tech] = {"work_h": 0.0, "drive_h": 0.0, "visits": 0}
-        days[dt_key]["techs"][tech]["work_h"] += float(row.estimated_work_hours) if row.estimated_work_hours else 0
+        days[dt_key]["techs"][tech]["work_h"] += _round_up_half(float(row.estimated_work_hours)) if row.estimated_work_hours else 0
         days[dt_key]["techs"][tech]["drive_h"] += (float(row.estimated_drive_minutes) / 60.0) if row.estimated_drive_minutes else 0
         days[dt_key]["techs"][tech]["visits"] += 1
 
