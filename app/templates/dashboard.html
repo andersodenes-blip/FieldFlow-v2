@@ -4,122 +4,661 @@
 
 {% block content %}
 <style>
-    .dash-bg { background: #f0f2f5; }
-    .dash-header {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 10px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-    .dash-card {
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-    }
-    .kpi-pink { color: #ec4899; }
-    .kpi-blue { color: #2563eb; }
-    .kpi-orange { color: #ea580c; }
-    .bar-pink { background: linear-gradient(90deg, #ec4899 0%, #f472b6 100%); }
+/* ── Reset & Base ── */
+.dash-wrap{background:#f0f2f5;margin:-24px;padding:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,sans-serif;color:#1a1a2e;line-height:1.5}
+
+/* ── 1. HEADER ── */
+.dash-header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:28px 40px;display:flex;justify-content:space-between;align-items:center}
+.dash-header h1{font-size:22px;font-weight:600}
+.dash-header .subtitle{color:#94a3b8;font-size:13px;margin-top:4px}
+.dash-header-right{display:flex;gap:10px;align-items:center}
+.btn-hdr{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;transition:.2s;text-decoration:none}
+.btn-hdr:hover{background:rgba(255,255,255,.22)}
+
+/* ── Container ── */
+.dash-container{max-width:1200px;margin:0 auto;padding:24px 20px 40px}
+.section{margin-bottom:28px}
+.section-title{font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#475569;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+.card{background:#fff;border-radius:10px;padding:22px 24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+
+/* ── Region tabs ── */
+.region-tabs{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap}
+.region-tab{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:.2s;border:1px solid #e2e8f0;color:#475569;background:#fff}
+.region-tab:hover{background:#eff6ff;border-color:#93c5fd}
+.region-tab.active{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-color:transparent}
+
+/* ── 2. KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.kpi{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:.2s}
+.kpi:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.kpi-label{font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.3px}
+.kpi-value{font-size:32px;font-weight:700;margin:4px 0}
+.kpi-sub{font-size:12px;color:#94a3b8}
+.kpi-total .kpi-value{color:#1a1a2e}
+.kpi-done .kpi-value{color:#ec4899}
+.kpi-planned .kpi-value{color:#2563eb}
+.kpi-unplanned .kpi-value{color:#ea580c}
+
+/* ── 3. PROGRESS ── */
+.progress-section{margin-bottom:28px}
+.progress-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.progress-row .label{font-size:13px;color:#64748b}
+.progress-row .value{font-size:13px;font-weight:600}
+.progress-bar{height:18px;background:#e2e8f0;border-radius:9px;overflow:visible;position:relative}
+.progress-fill{height:100%;border-radius:9px;background:linear-gradient(90deg,#ec4899,#f472b6);transition:width .5s}
+.year-marker{position:absolute;top:-3px;height:24px;width:2px;background:#ef4444;border-radius:1px}
+.status-label{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600}
+.status-good{background:#dcfce7;color:#15803d}
+.status-ok{background:#fef9c3;color:#a16207}
+.status-behind{background:#fee2e2;color:#dc2626}
+
+/* ── 4. TECHNICIAN GRID ── */
+.tech-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:28px}
+.tech-card{padding:0;overflow:hidden}
+.tech-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f1f5f9}
+.tech-header h3{font-size:15px;font-weight:600}
+.badge{font-size:11px;color:#fff;padding:2px 8px;border-radius:10px;font-weight:500}
+.tech-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:14px 20px}
+.stat-row{text-align:center;padding:4px 0}
+.stat-row .label{display:block;font-size:11px;color:#94a3b8}
+.stat-row .val{display:block;font-size:16px;font-weight:600}
+.c-pink{color:#ec4899}.c-blue{color:#2563eb}.c-orange{color:#ea580c}
+.tech-kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:0;padding:10px 20px;border-top:1px solid #f1f5f9;background:#f8fafc}
+.tech-kpi-row .kpi-item{text-align:center;padding:4px 2px}
+.tech-kpi-row .kpi-label{display:block;font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px}
+.tech-kpi-row .kpi-value{display:block;font-size:13px;font-weight:600;margin-top:2px}
+.tech-progress{padding:12px 20px 16px;border-top:1px solid #f1f5f9}
+.tech-progress .progress-bar{height:8px;border-radius:4px}
+.tech-progress .progress-fill{border-radius:4px}
+
+/* ── 5. FILTER BAR ── */
+.filter-bar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-bar select,.filter-bar input{padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;color:#1a1a2e}
+.filter-bar input{flex:1;min-width:200px}
+.filter-bar select{min-width:150px}
+.filter-count{font-size:12px;color:#64748b;margin-left:auto;white-space:nowrap}
+
+/* ── 6. CALENDAR ── */
+.cal-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
+.cal-nav-btn{background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;font-weight:600;color:#475569;transition:.2s}
+.cal-nav-btn:hover{background:#f0f2f5;border-color:#94a3b8}
+.cal-month-title{font-size:18px;font-weight:700;color:#1a1a2e;min-width:180px;text-align:center}
+.cal-week-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.cal-week-tab{padding:6px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:#475569;transition:.2s}
+.cal-week-tab:hover{background:#eff6ff;border-color:#93c5fd}
+.cal-week-tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
+.cal-week-tab.reset{background:#f8fafc;color:#64748b;border-style:dashed}
+.cal-week-tab.reset:hover{background:#f0f2f5}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px}
+.cal-grid-hdr{text-align:center;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;padding:6px 0}
+.cal-day{border:1px solid #e2e8f0;border-radius:8px;padding:8px;min-height:70px;cursor:pointer;transition:.15s;position:relative}
+.cal-day:hover{box-shadow:0 2px 8px rgba(0,0,0,.1);transform:translateY(-1px)}
+.cal-day.empty{background:#f8fafc;border-color:transparent;cursor:default;min-height:0;padding:4px}
+.cal-day.empty:hover{box-shadow:none;transform:none}
+.cal-day.weekend{background:#fafafa;border-color:#f1f5f9;cursor:default;opacity:.5}
+.cal-day.weekend:hover{box-shadow:none;transform:none}
+.cal-day.holiday{background:#fff5f5;border-color:#fecaca;cursor:default;opacity:.6}
+.cal-day.holiday:hover{box-shadow:none;transform:none}
+.cal-day.holiday .day-num{color:#dc2626}
+.cal-day .day-num{font-size:13px;font-weight:700;color:#475569}
+.cal-day .day-num.today{background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center}
+.cal-day .day-info{font-size:10px;color:#64748b;margin-top:2px}
+.cal-day .day-hours{font-size:10px;color:#94a3b8;margin-top:1px}
+.day-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle}
+.dot-green{background:#4CAF50}.dot-blue{background:#2196F3}.dot-grey{background:#E0E0E0}
+.cal-day.color-green{background:#4CAF50;border-color:#388E3C}.cal-day.color-green .day-num,.cal-day.color-green .day-info,.cal-day.color-green .day-hours{color:#fff}
+.cal-day.color-blue{background:#2196F3;border-color:#1976D2}.cal-day.color-blue .day-num,.cal-day.color-blue .day-info,.cal-day.color-blue .day-hours{color:#fff}
+.cal-day.color-grey{background:#E0E0E0;border-color:#BDBDBD}.cal-day.color-grey .day-num,.cal-day.color-grey .day-info,.cal-day.color-grey .day-hours{color:#333}
+.cal-legend{display:flex;gap:14px;justify-content:center;padding:6px 0;font-size:11px;color:#64748b}
+
+/* ── Week view ── */
+.week-view{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.week-col{background:#fff;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;display:flex;flex-direction:column}
+.week-col-hdr{padding:10px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:center}
+.week-col-hdr .wc-day{font-size:12px;font-weight:600;color:#475569}
+.week-col-hdr .wc-date{font-size:14px;font-weight:700;color:#1a1a2e}
+.week-col-hdr.today-col{background:#eff6ff;border-bottom-color:#93c5fd}
+.week-col-body{flex:1;padding:6px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:300px}
+.week-col-footer{padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0}
+.week-cap-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:4px}
+.week-cap-fill{height:100%;border-radius:4px;transition:width .3s}
+
+/* ── 7. JOB MODAL ── */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;justify-content:center;align-items:flex-start;padding-top:60px}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:12px;width:600px;max-width:95%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;border-radius:12px 12px 0 0}
+.modal-header h2{font-size:18px;font-weight:600}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;padding:4px 8px;border-radius:4px}
+.modal-close:hover{color:#fff}
+.modal-body{padding:20px 24px}
+.detail-grid{display:grid;grid-template-columns:140px 1fr;gap:8px 16px;margin-bottom:20px}
+.detail-grid .dl{font-size:12px;color:#64748b;text-transform:uppercase}
+.detail-grid .dv{font-size:14px;font-weight:500}
+.modal-actions{display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;align-items:center}
+.btn{padding:10px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-green{background:#16a34a;color:#fff}.btn-green:hover{background:#15803d}
+.btn-yellow{background:#f59e0b;color:#fff}.btn-yellow:hover{background:#d97706}
+.btn-blue{background:#2563eb;color:#fff}.btn-blue:hover{background:#1d4ed8}
+.btn-outline{background:#fff;border:1px solid #d1d5db;color:#475569}.btn-outline:hover{background:#f8fafc}
+.status-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.status-fullfort{background:#fce7f3;color:#be185d}
+.status-planlagt{background:#dbeafe;color:#1d4ed8}
+.status-uplanlagt{background:#ffedd5;color:#c2410c}
+.history-section{margin-top:20px}
+.history-section h4{font-size:13px;color:#475569;margin-bottom:8px}
+.history-item{font-size:12px;color:#64748b;padding:4px 0;border-bottom:1px solid #f1f5f9}
+
+/* ── Defer dialog ── */
+.defer-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1100;display:flex;align-items:center;justify-content:center}
+.defer-dialog{background:#fff;border-radius:14px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.defer-reasons{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.defer-reason{padding:10px 14px;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;transition:.15s;text-align:left;background:#fff}
+.defer-reason:hover{border-color:#93c5fd;background:#eff6ff}
+.defer-reason.selected{border-color:#2563eb;background:#eff6ff;font-weight:600}
+
+/* ── Toast ── */
+.toast-container{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:14px 20px;border-radius:8px;color:#fff;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease;min-width:280px}
+.toast-success{background:#16a34a}
+.toast-error{background:#dc2626}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── Responsive ── */
+@media(max-width:900px){.week-view{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .tech-grid{grid-template-columns:1fr}
+    .filter-bar{flex-direction:column}
+    .dash-header{flex-direction:column;gap:12px;padding:20px}
+    .modal{width:100%;margin:0 10px}
+    .week-view{grid-template-columns:1fr}
+}
 </style>
 
-<div class="dash-bg -m-6 p-6 min-h-screen" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+<div class="dash-wrap" x-data="dashboard()" x-init="init()">
 
-    <!-- Header -->
-    <div class="dash-header px-6 py-5 mb-6">
-        <h1 class="text-2xl font-bold text-white">Dashboard{% if selected_region %} — {{ selected_region.name }}{% endif %}</h1>
-        <p class="mt-1 text-sm text-gray-300">Velkommen, {{ user.email }}</p>
+    <!-- 1. HEADER -->
+    <div class="dash-header">
+        <div>
+            <h1>Hedengren Service AS{% if selected_region %} &mdash; {{ selected_region.name }} Dashboard{% endif %}</h1>
+            <div class="subtitle" x-text="subtitleText">Laster data...</div>
+        </div>
+        <div class="dash-header-right">
+            <a href="/app/routes" class="btn-hdr">Ruteplanlegging</a>
+            <a href="/app/jobs" class="btn-hdr">Jobber</a>
+            <button class="btn-hdr" @click="location.reload()">Oppdater</button>
+        </div>
     </div>
 
-    <!-- Region selector -->
-    {% if regions %}
-    <div class="dash-card p-3 mb-6">
-        <div class="flex flex-wrap gap-2">
+    <div class="dash-container">
+
+        <!-- Region tabs -->
+        {% if regions %}
+        <div class="region-tabs">
             {% for region in regions %}
             <a href="/app/dashboard?region_id={{ region.id }}"
-               class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                   {% if selected_region and selected_region.id == region.id %}
-                   text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}"
-               {% if selected_region and selected_region.id == region.id %}
-               style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);"
-               {% endif %}>
+               class="region-tab{% if selected_region and selected_region.id == region.id %} active{% endif %}">
                 {{ region.name }}
             </a>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- KPI Cards -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <!-- Total -->
-        <div class="dash-card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Totalt jobber</p>
-            <p class="mt-2 text-3xl font-bold text-gray-900">{{ stats.total }}</p>
-        </div>
-        <!-- Completed -->
-        <div class="dash-card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Utfort</p>
-            <p class="mt-2 text-3xl font-bold kpi-pink">{{ stats.completed }}</p>
-        </div>
-        <!-- Scheduled -->
-        <div class="dash-card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Planlagt</p>
-            <p class="mt-2 text-3xl font-bold kpi-blue">{{ stats.scheduled }}</p>
-        </div>
-        <!-- Unscheduled -->
-        <div class="dash-card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Uplanlagt</p>
-            <p class="mt-2 text-3xl font-bold kpi-orange">{{ stats.unscheduled }}</p>
-        </div>
-    </div>
-
-    <!-- Progress bar -->
-    <div class="dash-card p-5 mb-6">
-        <div class="flex items-center justify-between mb-2">
-            <h2 class="text-sm font-semibold text-gray-700">Fremdrift</h2>
-            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
-                {% if pct >= 70 %}bg-green-100 text-green-800
-                {% elif pct >= 40 %}bg-yellow-100 text-yellow-800
-                {% else %}bg-red-100 text-red-800{% endif %}">
-                {{ pct_label }}
-            </span>
-        </div>
-        <div class="flex items-center gap-3">
-            <div class="flex-1 h-4 rounded-full bg-gray-200 overflow-hidden">
-                <div class="h-full rounded-full bar-pink transition-all duration-500" style="width: {{ pct }}%"></div>
+        <!-- 2. KPI GRID -->
+        <div class="kpi-grid">
+            <div class="kpi kpi-total">
+                <div class="kpi-label">Totalt</div>
+                <div class="kpi-value">{{ stats.total }}</div>
+                <div class="kpi-sub">{{ stats.total_hours }} timer</div>
             </div>
-            <span class="text-sm font-bold text-gray-700 w-12 text-right">{{ pct }}%</span>
+            <div class="kpi kpi-done">
+                <div class="kpi-label">Fullfort</div>
+                <div class="kpi-value">{{ stats.completed }}</div>
+                <div class="kpi-sub">{{ stats.completed_pct }}%</div>
+            </div>
+            <div class="kpi kpi-planned">
+                <div class="kpi-label">Planlagt</div>
+                <div class="kpi-value">{{ stats.scheduled }}</div>
+                <div class="kpi-sub">{{ stats.scheduled_pct }}%</div>
+            </div>
+            <div class="kpi kpi-unplanned">
+                <div class="kpi-label">Uplanlagt</div>
+                <div class="kpi-value">{{ stats.unscheduled }}</div>
+                <div class="kpi-sub">{{ stats.unscheduled_pct }}%</div>
+            </div>
         </div>
-        <p class="mt-2 text-xs text-gray-400">{{ stats.completed }} av {{ stats.total }} jobber utfort</p>
-    </div>
 
-    <!-- Technician cards -->
-    <div class="mb-2">
-        <h2 class="text-lg font-bold text-gray-900">Teknikere{% if selected_region %} — {{ selected_region.name }}{% endif %}</h2>
-        <p class="text-xs text-gray-400 mt-1">Aktive teknikere{% if selected_region %} i {{ selected_region.name }}{% endif %}</p>
-    </div>
-
-    {% if technicians %}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {% for t in technicians %}
-        <div class="dash-card p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-semibold text-gray-900">{{ t.tech.name }}</p>
-                    <p class="text-xs text-gray-400 mt-0.5">{{ t.region_name }}</p>
+        <!-- 3. YEAR PROGRESS -->
+        <div class="section progress-section">
+            <h2 class="section-title">Arets fremgang</h2>
+            <div class="card">
+                <div class="progress-row">
+                    <span class="label">Fullfort: {{ stats.completed }}/{{ stats.total }} ({{ stats.completed_pct }}%)</span>
+                    <span class="value">Aret: {{ year_pct }}% passert</span>
                 </div>
-                <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">Aktiv</span>
-            </div>
-            <div class="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                <span>{{ t.tech.email }}</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:{{ stats.completed_pct }}%"></div>
+                    <div class="year-marker" style="left:{{ year_pct }}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px">
+                    <span class="status-label status-{{ status_klasse }}">{{ status_tekst }}</span>
+                    <span style="font-size:11px;color:#94a3b8">Rod linje = dagens dato i aret</span>
+                </div>
             </div>
         </div>
-        {% endfor %}
+
+        <!-- 4. TECHNICIAN GRID -->
+        <div class="section">
+            <h2 class="section-title">Fordeling per tekniker</h2>
+            <div class="tech-grid">
+                {% for t in tech_stats %}
+                {% set colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4'] %}
+                {% set c = colors[loop.index0 % 6] %}
+                <div class="card tech-card">
+                    <div class="tech-header" style="border-left:4px solid {{ c }}">
+                        <h3>{{ t.name }}</h3>
+                        <span class="badge" style="background:{{ c }}">{{ t.share_pct }}% av alle</span>
+                    </div>
+                    <div class="tech-stats">
+                        <div class="stat-row"><span class="label">Totalt</span><span class="val">{{ t.total }}</span></div>
+                        <div class="stat-row"><span class="label">Fullfort</span><span class="val c-pink">{{ t.completed }}</span></div>
+                        <div class="stat-row"><span class="label">Planlagt</span><span class="val c-blue">{{ t.scheduled }}</span></div>
+                    </div>
+                    <div class="tech-kpi-row">
+                        <div class="kpi-item"><span class="kpi-label">Arbeidstimer</span><span class="kpi-value">{{ t.work_hours }} t</span></div>
+                        <div class="kpi-item"><span class="kpi-label">Reisetimer</span><span class="kpi-value">{{ t.drive_hours }} t</span></div>
+                    </div>
+                    <div class="tech-progress">
+                        <div class="progress-row" style="margin-bottom:4px">
+                            <span class="label" style="font-size:12px">Fullfort {{ t.completed_pct }}%</span>
+                            <span class="value" style="font-size:11px;color:#94a3b8">Aret: {{ year_pct }}% passert</span>
+                        </div>
+                        <div class="progress-bar" style="height:8px">
+                            <div class="progress-fill" style="width:{{ t.completed_pct }}%;background:{{ c }};height:100%"></div>
+                            <div class="year-marker" style="left:{{ year_pct }}%;height:14px;top:-3px"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 5. FILTER BAR + 6. CALENDAR -->
+        <div class="section">
+            <h2 class="section-title">Kalender</h2>
+            <div class="filter-bar">
+                <select x-model="calTechFilter" @change="renderCal()">
+                    <option value="">Alle teknikere</option>
+                    {% for t in tech_stats %}
+                    <option value="{{ t.name }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="filter-count" x-text="filterCountText"></span>
+            </div>
+            <div class="card" style="padding:16px">
+                <!-- Month nav -->
+                <div class="cal-nav">
+                    <button class="cal-nav-btn" @click="navMonth(-1)">&larr; Forrige</button>
+                    <span class="cal-month-title" x-text="monthTitle"></span>
+                    <button class="cal-nav-btn" @click="navMonth(1)">Neste &rarr;</button>
+                </div>
+                <!-- Week tabs -->
+                <div class="cal-week-tabs" x-html="weekTabsHtml"></div>
+                <!-- Calendar grid / week view -->
+                <div id="cal-view" x-html="calViewHtml"></div>
+                <!-- Legend -->
+                <div class="cal-legend">
+                    <span><span class="day-dot dot-blue"></span>Har besok</span>
+                    <span><span class="day-dot dot-grey"></span>Ingen besok</span>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /container -->
+
+    <!-- 7. JOB MODAL -->
+    <div class="modal-overlay" :class="{'active': modalOpen}" @click.self="closeModal()">
+        <div class="modal" @click.stop>
+            <div class="modal-header">
+                <h2 x-text="modalTitle">Jobbdetaljer</h2>
+                <button class="modal-close" @click="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" x-html="modalBody">
+                <div style="text-align:center;padding:30px;color:#64748b">Laster...</div>
+            </div>
+        </div>
     </div>
-    {% else %}
-    <div class="dash-card p-8 text-center">
-        <p class="text-sm text-gray-500">Ingen aktive teknikere funnet.</p>
+
+    <!-- Defer dialog -->
+    <div class="defer-overlay" x-show="deferOpen" @click.self="deferOpen=false" style="display:none" x-cloak>
+        <div class="defer-dialog" @click.stop>
+            <h3 style="font-size:16px;color:#1a1a2e;margin:0 0 16px">Utsett jobb</h3>
+            <p style="font-size:13px;color:#64748b;margin:0 0 12px">Velg begrunnelse:</p>
+            <div class="defer-reasons">
+                <template x-for="r in deferReasons">
+                    <button class="defer-reason" :class="{'selected': deferReason===r}" @click="deferReason=r" x-text="r"></button>
+                </template>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+                <button class="btn btn-outline" @click="deferOpen=false">Avbryt</button>
+                <button class="btn btn-yellow" :disabled="!deferReason" @click="confirmDefer()">Utsett jobb</button>
+            </div>
+        </div>
     </div>
-    {% endif %}
+
+    <!-- Reschedule dialog -->
+    <div class="defer-overlay" x-show="rescheduleOpen" @click.self="rescheduleOpen=false" style="display:none" x-cloak>
+        <div class="defer-dialog" @click.stop>
+            <h3 style="font-size:16px;color:#1a1a2e;margin:0 0 16px">Endre dato</h3>
+            <input type="date" x-model="rescheduleDate" style="width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px">
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+                <button class="btn btn-outline" @click="rescheduleOpen=false">Avbryt</button>
+                <button class="btn btn-blue" :disabled="!rescheduleDate" @click="confirmReschedule()">Lagre ny dato</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toast-container"></div>
 
 </div>
+
+<script>
+const CAL_DATA = {{ cal_data_json|safe }};
+const HOLIDAYS = {{ holidays_json|safe }};
+const MND = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+const DAG = ['Man','Tir','Ons','Tor','Fre','Lor','Son'];
+const DAG_LANG = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lordag','Sondag'];
+
+function pad2(n) { return n < 10 ? '0'+n : ''+n; }
+function esc(s) { var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function getIsoWeek(iso) {
+    var d = new Date(iso+'T12:00:00');
+    var dayNum = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - dayNum);
+    var ys = new Date(d.getFullYear(), 0, 1);
+    return Math.ceil((((d - ys) / 86400000) + 1) / 7);
+}
+function showToast(msg, type) {
+    var c = document.getElementById('toast-container');
+    var t = document.createElement('div');
+    t.className = 'toast toast-' + type;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(function(){ t.style.animation='fadeOut .3s ease forwards'; setTimeout(function(){t.remove()},300); }, 3000);
+}
+
+function dashboard() {
+    return {
+        calYear: new Date().getFullYear(),
+        calMonth: new Date().getMonth(),
+        calWeek: null,
+        calTechFilter: '',
+        filterCountText: '',
+        modalOpen: false,
+        modalTitle: '',
+        modalBody: '',
+        modalJobId: null,
+        deferOpen: false,
+        deferReason: '',
+        deferReasons: ['Kunde ikke tilgjengelig','Mangler deler/utstyr','Tekniker syk','Vaerforhold','Annet'],
+        rescheduleOpen: false,
+        rescheduleDate: '',
+        subtitleText: '',
+
+        init() {
+            var now = new Date();
+            this.subtitleText = 'Oppdatert ' + now.toLocaleDateString('nb-NO') + ' kl. ' + now.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
+            this.renderCal();
+        },
+
+        get monthTitle() { return MND[this.calMonth] + ' ' + this.calYear; },
+
+        get weekTabsHtml() {
+            var weeks = new Set();
+            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
+            for (var d=1; d<=dim; d++) {
+                var dt = new Date(this.calYear, this.calMonth, d);
+                if (dt.getDay()!==0 && dt.getDay()!==6) {
+                    weeks.add(getIsoWeek(this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d)));
+                }
+            }
+            var sorted = Array.from(weeks).sort(function(a,b){return a-b;});
+            var self = this;
+            var h = '';
+            sorted.forEach(function(wk) {
+                var cls = self.calWeek === wk ? ' active' : '';
+                h += '<div class="cal-week-tab'+cls+'" onclick="document._dash.selectWeek('+wk+')">Uke '+wk+'</div>';
+            });
+            if (this.calWeek !== null) {
+                h += '<div class="cal-week-tab reset" onclick="document._dash.selectWeek(null)">Vis hele maneden</div>';
+            }
+            return h;
+        },
+
+        get calViewHtml() {
+            if (this.calWeek === null) return this.renderMonthGrid();
+            return this.renderWeekView();
+        },
+
+        navMonth(delta) {
+            this.calMonth += delta;
+            if (this.calMonth < 0) { this.calMonth = 11; this.calYear--; }
+            if (this.calMonth > 11) { this.calMonth = 0; this.calYear++; }
+            this.calWeek = null;
+        },
+
+        selectWeek(wk) { this.calWeek = wk; },
+
+        renderCal() {
+            // Count total visits in calendar
+            var total = 0;
+            var techFilter = this.calTechFilter;
+            Object.keys(CAL_DATA).forEach(function(dt) {
+                var day = CAL_DATA[dt];
+                if (techFilter) {
+                    day.techs.forEach(function(t) { if (t.name === techFilter) total += t.visits; });
+                } else {
+                    total += day.visits;
+                }
+            });
+            this.filterCountText = total + ' besok totalt';
+        },
+
+        getFilteredDay(dateIso) {
+            var day = CAL_DATA[dateIso];
+            if (!day) return {visits:0, hours:0, techs:[]};
+            if (!this.calTechFilter) return {visits:day.visits, hours:+(day.work_h+day.drive_h).toFixed(1), techs:day.techs};
+            var f = this.calTechFilter;
+            var visits=0, hours=0, techs=[];
+            day.techs.forEach(function(t) {
+                if (t.name === f) { visits+=t.visits; hours+=t.hours; techs.push(t); }
+            });
+            return {visits:visits, hours:+hours.toFixed(1), techs:techs};
+        },
+
+        renderMonthGrid() {
+            var todayIso = new Date().toISOString().slice(0,10);
+            var h = '<div class="cal-grid">';
+            DAG.forEach(function(d){ h+='<div class="cal-grid-hdr">'+d+'</div>'; });
+            var first = new Date(this.calYear, this.calMonth, 1);
+            var fw = (first.getDay()+6)%7;
+            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
+            for (var e=0; e<fw; e++) h+='<div class="cal-day empty"></div>';
+            for (var d=1; d<=dim; d++) {
+                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt = new Date(this.calYear, this.calMonth, d);
+                var wd = (dt.getDay()+6)%7;
+                var isWe = wd>=5;
+                var isHol = HOLIDAYS.hasOwnProperty(iso);
+                var isToday = iso===todayIso;
+                var info = this.getFilteredDay(iso);
+                var cls = '';
+                if (isWe) cls='weekend';
+                else if (isHol) cls='holiday';
+                else if (info.visits>0) cls='color-blue';
+                else cls='color-grey';
+                var wk = getIsoWeek(iso);
+                var click = (isWe||isHol) ? '' : ' onclick="document._dash.selectWeek('+wk+')"';
+                h+='<div class="cal-day '+cls+'"'+click+'>';
+                h+='<div class="day-num'+(isToday?' today':'')+'">'+d+'</div>';
+                if (!isWe && !isHol && info.visits>0) {
+                    h+='<div class="day-info">'+info.visits+' besok</div>';
+                    h+='<div class="day-hours">'+info.hours+'t</div>';
+                }
+                h+='</div>';
+            }
+            h+='</div>';
+            return h;
+        },
+
+        renderWeekView() {
+            var todayIso = new Date().toISOString().slice(0,10);
+            var dim = new Date(this.calYear, this.calMonth+1, 0).getDate();
+            var dates = [];
+            for (var d=1; d<=dim; d++) {
+                var iso = this.calYear+'-'+pad2(this.calMonth+1)+'-'+pad2(d);
+                var dt = new Date(this.calYear, this.calMonth, d);
+                var wd = (dt.getDay()+6)%7;
+                if (wd<5 && getIsoWeek(iso)===this.calWeek) {
+                    dates.push({day:d, iso:iso, wd:wd, isToday:iso===todayIso});
+                }
+            }
+            var weekDays = [null,null,null,null,null];
+            dates.forEach(function(dd){ weekDays[dd.wd]=dd; });
+            var self = this;
+            var h = '<div class="week-view">';
+            for (var col=0; col<5; col++) {
+                var dd = weekDays[col];
+                h+='<div class="week-col">';
+                if (dd) {
+                    var info = self.getFilteredDay(dd.iso);
+                    h+='<div class="week-col-hdr'+(dd.isToday?' today-col':'')+'"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date">'+dd.day+'. '+MND[self.calMonth].toLowerCase()+'</div></div>';
+                    h+='<div class="week-col-body">';
+                    if (info.techs.length===0) h+='<div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0">Ingen besok</div>';
+                    info.techs.forEach(function(t) {
+                        var pct = Math.min((t.hours/7.5)*100, 100);
+                        var col = t.hours<6?'#16a34a':(t.hours<7?'#eab308':'#dc2626');
+                        h+='<div style="margin-top:4px"><div style="font-size:11px;display:flex;justify-content:space-between"><span style="font-weight:600;color:#475569">'+esc(t.name)+'</span><span style="color:'+col+';font-weight:600">'+t.visits+' besok / '+t.hours+'t</span></div>';
+                        h+='<div class="week-cap-bar"><div class="week-cap-fill" style="width:'+pct.toFixed(0)+'%;background:'+col+'"></div></div></div>';
+                    });
+                    h+='</div>';
+                    h+='<div class="week-col-footer"><div style="font-size:11px;color:#64748b">'+info.visits+' besok / '+info.hours+'t</div></div>';
+                } else {
+                    h+='<div class="week-col-hdr"><div class="wc-day">'+DAG_LANG[col]+'</div><div class="wc-date" style="color:#94a3b8">-</div></div>';
+                    h+='<div class="week-col-body"><div style="text-align:center;color:#d1d5db;font-size:12px;padding:20px 0">Annen maned</div></div>';
+                    h+='<div class="week-col-footer"></div>';
+                }
+                h+='</div>';
+            }
+            h+='</div>';
+            return h;
+        },
+
+        // ── Job Modal ──
+        async openJobModal(jobId) {
+            this.modalJobId = jobId;
+            this.modalTitle = 'Laster...';
+            this.modalBody = '<div style="text-align:center;padding:30px;color:#64748b"><div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .6s linear infinite"></div></div>';
+            this.modalOpen = true;
+            try {
+                var res = await fetch('/jobs/'+jobId+'/detail', {headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                var job = await res.json();
+                this.modalTitle = 'Jobb: ' + (job.title || jobId);
+                this.renderModal(job);
+                // Load history
+                var hres = await fetch('/jobs/'+jobId+'/history', {headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                var hist = await hres.json();
+                if (hist.length > 0) {
+                    var hh = '<div class="history-section"><h4>Endringshistorikk</h4>';
+                    hist.forEach(function(e) { hh+='<div class="history-item"><span style="color:#94a3b8">'+esc(e.created_at)+'</span> &mdash; '+esc(e.detail)+'</div>'; });
+                    hh += '</div>';
+                    this.modalBody += hh;
+                }
+            } catch(e) {
+                this.modalBody = '<p style="color:#dc2626">Feil: '+esc(e.message)+'</p>';
+            }
+        },
+
+        renderModal(job) {
+            var statusMap = {completed:'Fullfort', scheduled:'Planlagt', unscheduled:'Uplanlagt', in_progress:'Under arbeid', cancelled:'Kansellert'};
+            var statusCls = {completed:'status-fullfort', scheduled:'status-planlagt', unscheduled:'status-uplanlagt'};
+            var h = '<div class="detail-grid">';
+            h += '<div class="dl">Tittel</div><div class="dv">'+esc(job.title||'-')+'</div>';
+            h += '<div class="dl">Status</div><div class="dv"><span class="status-badge '+(statusCls[job.status]||'')+'">'+(statusMap[job.status]||job.status)+'</span></div>';
+            if (job.address) h += '<div class="dl">Adresse</div><div class="dv">'+esc(job.address)+' '+esc(job.postal_code||'')+'</div>';
+            if (job.service_type) h += '<div class="dl">Systemtype</div><div class="dv">'+esc(job.service_type)+'</div>';
+            if (job.technician_name) h += '<div class="dl">Tekniker</div><div class="dv">'+esc(job.technician_name)+'</div>';
+            if (job.created_at) h += '<div class="dl">Opprettet</div><div class="dv">'+esc(job.created_at)+'</div>';
+            h += '</div>';
+            // Actions
+            var isComplete = job.status === 'completed';
+            h += '<div class="modal-actions">';
+            if (!isComplete) {
+                h += '<button class="btn btn-green" onclick="document._dash.completeJob()">Marker fullfort</button>';
+                h += '<button class="btn btn-yellow" onclick="document._dash.deferOpen=true;document._dash.deferReason=\'\'">Utsett</button>';
+                h += '<button class="btn btn-blue" onclick="document._dash.rescheduleOpen=true;document._dash.rescheduleDate=\'\'">Endre dato</button>';
+            } else {
+                h += '<span style="color:#ec4899;font-weight:600">&#10003; Fullfort</span>';
+            }
+            h += '<button class="btn btn-outline" onclick="document._dash.closeModal()">Lukk</button>';
+            h += '</div>';
+            this.modalBody = h;
+        },
+
+        closeModal() { this.modalOpen = false; this.modalJobId = null; },
+
+        async completeJob() {
+            if (!this.modalJobId) return;
+            try {
+                var res = await fetch('/jobs/'+this.modalJobId+'/complete', {method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token')}});
+                if (res.ok) { showToast('Jobb markert som fullfort','success'); this.closeModal(); setTimeout(function(){location.reload()},500); }
+                else showToast('Feil ved fullfoering','error');
+            } catch(e) { showToast('Feil: '+e.message,'error'); }
+        },
+
+        async confirmDefer() {
+            if (!this.modalJobId || !this.deferReason) return;
+            try {
+                var res = await fetch('/jobs/'+this.modalJobId+'/defer', {
+                    method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},
+                    body: JSON.stringify({reason: this.deferReason})
+                });
+                if (res.ok) { showToast('Jobb utsatt','success'); this.deferOpen=false; this.closeModal(); setTimeout(function(){location.reload()},500); }
+                else showToast('Feil ved utsettelse','error');
+            } catch(e) { showToast('Feil: '+e.message,'error'); }
+        },
+
+        async confirmReschedule() {
+            if (!this.modalJobId || !this.rescheduleDate) return;
+            try {
+                var res = await fetch('/jobs/'+this.modalJobId+'/reschedule', {
+                    method:'POST', headers:{'Authorization':'Bearer '+getCookie('access_token'),'Content-Type':'application/json'},
+                    body: JSON.stringify({new_date: this.rescheduleDate})
+                });
+                if (res.ok) { showToast('Dato endret','success'); this.rescheduleOpen=false; this.closeModal(); setTimeout(function(){location.reload()},500); }
+                else showToast('Feil ved datoendring','error');
+            } catch(e) { showToast('Feil: '+e.message,'error'); }
+        },
+    };
+}
+
+// Expose dash instance for onclick handlers
+document.addEventListener('alpine:init', function() {
+    Alpine.data('dashboard', dashboard);
+});
+document.addEventListener('alpine:initialized', function() {
+    // Store ref for onclick handlers in rendered HTML
+    setTimeout(function(){
+        var el = document.querySelector('[x-data]');
+        if (el && el._x_dataStack) document._dash = el._x_dataStack[0];
+    }, 100);
+});
+
+function getCookie(name) {
+    var v = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+}
+</script>
 {% endblock %}
