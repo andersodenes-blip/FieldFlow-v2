@@ -461,7 +461,11 @@ function renderJobCard(j,todayIso){
     var h='<div class="job-card '+si.cls+'" onclick="document._dash.openJobModal(\''+esc(j.id)+'\')">';
     h+='<div class="jc-ticket">'+esc(ticket)+'</div>';
     h+='<div class="jc-addr">'+esc(j.address||'-')+' '+esc(j.postal_code||'')+'</div>';
-    h+='<div class="jc-row"><span class="jc-tech">'+esc(j.technician||'-')+'</span><span class="jc-hours">'+(j.sla_hours?j.sla_hours.toFixed(1):'-')+'t</span></div>';
+    h+='<div class="jc-row"><span class="jc-tech">'+esc(j.technician||'-')+'</span>';
+    var hrs=j.work_hours?j.work_hours.toFixed(1):(j.sla_hours?j.sla_hours.toFixed(1):'-');
+    h+='<span class="jc-hours">'+hrs+'t';
+    if(j.total_days&&j.total_days>1)h+=' <span style="font-size:9px;color:#6366f1;font-weight:600">(Dag '+j.day_number+' av '+j.total_days+')</span>';
+    h+='</span></div>';
     h+='<div class="jc-row"><span class="jc-status" style="background:'+si.bg+'">'+si.label+'</span>';
     if(j.status==='completed'&&j.scheduled_date&&j.updated_at){
         var planMs=new Date(j.scheduled_date+'T00:00:00').getTime();

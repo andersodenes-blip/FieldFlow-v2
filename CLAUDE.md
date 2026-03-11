@@ -399,7 +399,7 @@ SELECT id, name FROM regions WHERE tenant_id = 'd1372aa8-46d5-4a5c-a439-132e285f
 | GET | `/app/login` | Ingen | Login-side |
 | GET | `/app/logout` | Ingen | Logg ut (slett cookie) |
 | GET | `/app/dashboard` | Cookie | Dashboard med KPI, kalender, ukesvisning |
-| GET | `/app/dashboard/week-data` | Cookie | JSON: jobb-kort + tekniker-kapasitet per dag |
+| GET | `/app/dashboard/week-data` | Cookie | JSON: jobb-kort (inkl. day_number/total_days for multi-dag) + tekniker-kapasitet per dag |
 | GET | `/app/customers` | Cookie | Kundeliste |
 | GET | `/app/customers/table` | Cookie | Kunde-tabell (HTMX) |
 | GET | `/app/regions` | Cookie | Regionliste |
@@ -500,7 +500,8 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 - **Auto-scroll** til markert kolonne (`scrollIntoView` med smooth behavior)
 - **"Vis hele maneden"-knapp** under ukesvisningen (tilbake til manedsgrid)
 - `selectDay(iso)` setter bade `calWeek` og `selectedDay`; `selectWeek(wk)` kun uke uten markering
-- **Jobb-kort:** ticket, adresse, tekniker, SLA-timer, status-badge, +Xd/-Xd badges
+- **Jobb-kort:** ticket, adresse, tekniker, arbeidstimer (denne dagen), status-badge, +Xd/-Xd badges
+- **Multi-dag jobber:** Viser "Dag X av Y" i lilla tekst + denne dagens `work_hours` (ikke total SLA)
 - **Knapper:** Fullfor + Utsett + Detaljer
 - **Tekniker-progress-bars** per dag: <50% gron, 50-80% gul, >80% rod
 
@@ -542,7 +543,7 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 - Backup/eksport-funksjon
 - Rapporter og statistikk-side
 - Kunde-detaljside (kun liste eksisterer)
-- Multi-dag jobb-splitting i ukesvisning (dag X/Y badges)
+- ~~Multi-dag jobb-splitting i ukesvisning (dag X/Y badges)~~ ✓ Implementert
 - Smart planlegging (5 beste datoforslag) — kun i v1
 - Kapasitetsvarsler (bjelle-ikon med proaktive advarsler)
 - Kryssregion-forslag (flytt jobber til nabolag-tekniker)

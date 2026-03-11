@@ -354,6 +354,36 @@ async def dashboard_week_data(
     rows = result.all()
     today_iso = date.today().isoformat()
 
+    # Collect unique job IDs to look up multi-day info
+    job_ids = list({row.job_id for row in rows})
+
+    # Query total visits per job + ordered dates for day numbering
+    job_day_info: dict[str, dict] = {}  # job_id -> {total_days, dates: [iso, ...]}
+    if job_ids:
+        multi_result = await db.execute(
+            select(
+                ScheduledVisit.job_id,
+                Route.route_date,
+            )
+            .select_from(RouteVisit)
+            .join(Route, RouteVisit.route_id == Route.id)
+            .join(ScheduledVisit, RouteVisit.scheduled_visit_id == ScheduledVisit.id)
+            .where(
+                Route.tenant_id == tid,
+                ScheduledVisit.job_id.in_(job_ids),
+            )
+            .order_by(ScheduledVisit.job_id, Route.route_date)
+        )
+        for mrow in multi_result.all():
+            jid = str(mrow.job_id)
+            if jid not in job_day_info:
+                job_day_info[jid] = {"dates": []}
+            dt_iso = mrow.route_date.isoformat()
+            if dt_iso not in job_day_info[jid]["dates"]:
+                job_day_info[jid]["dates"].append(dt_iso)
+        for jid in job_day_info:
+            job_day_info[jid]["total_days"] = len(job_day_info[jid]["dates"])
+
     days: dict = {}
     for row in rows:
         dt_key = row.route_date.isoformat()
@@ -367,8 +397,14 @@ async def dashboard_week_data(
             and row.route_date.isoformat() < today_iso
         )
 
+        # Multi-day info
+        jid = str(row.job_id)
+        info = job_day_info.get(jid, {"dates": [dt_key], "total_days": 1})
+        total_days = info["total_days"]
+        day_number = info["dates"].index(dt_key) + 1 if dt_key in info["dates"] else 1
+
         days[dt_key]["jobs"].append({
-            "id": str(row.job_id),
+            "id": jid,
             "title": row.title,
             "external_id": row.external_id,
             "address": row.address,
@@ -381,6 +417,8 @@ async def dashboard_week_data(
             "drive_minutes": int(row.estimated_drive_minutes) if row.estimated_drive_minutes else 0,
             "scheduled_date": row.route_date.isoformat(),
             "updated_at": row.job_updated_at.isoformat() if row.job_updated_at else None,
+            "day_number": day_number,
+            "total_days": total_days,
         })
 
         # Accumulate per-tech hours
