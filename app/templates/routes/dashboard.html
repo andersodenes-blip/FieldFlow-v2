@@ -701,6 +701,8 @@ function routeDashboard() {
   const regionNames = { {% for r in regions %}'{{ r.id }}': '{{ r.name }}',{% endfor %} };
   const monthNames = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
   const dayNames = ['Man','Tir','Ons','Tor','Fre'];
+  const preloadedRoutes = {{ preloaded_routes_json|safe }};
+  const preloadedTotal = {{ preloaded_total }};
 
   const statusLabels = {
     unscheduled: 'Uplanlagt', scheduled: 'Planlagt', in_progress: 'Under arbeid',
@@ -768,7 +770,18 @@ function routeDashboard() {
         if (newVal && newVal !== oldVal) this.onRegionChange();
       });
 
-      if (this.regionId) this.loadRoutes();
+      // Use server-side preloaded routes (avoids client-side auth timing issues)
+      if (preloadedRoutes.length > 0) {
+        this.routes = preloadedRoutes;
+        this.totalRoutes = preloadedTotal;
+        this.totalVisits = this.routes.reduce((s, r) => s + r.visit_count, 0);
+        this.totalJobs = this.totalVisits;
+        this.extractTechnicians();
+        this.filterByTech();
+        this.buildCalWeek();
+      } else if (this.regionId) {
+        this.loadRoutes();
+      }
     },
 
     async apiCall(method, url, body) {

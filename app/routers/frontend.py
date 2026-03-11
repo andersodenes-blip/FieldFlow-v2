@@ -1,4 +1,5 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
+import json
 import uuid
 
 from datetime import date, timedelta
@@ -673,6 +674,30 @@ async def routes_page(
         else:
             selected_region = regions[0]
 
+    # Pre-load routes for selected region (avoids client-side auth timing issues)
+    preloaded_routes = []
+    preloaded_total = 0
+    if selected_region:
+        from app.services.route_service import RouteService
+
+        route_svc = RouteService(db, user_id=user.id)
+        items, total = await route_svc.list_routes(
+            tid, region_id=selected_region.id, page=1, page_size=500,
+        )
+        preloaded_total = total
+        preloaded_routes = [
+            {
+                "id": str(item.id),
+                "route_date": item.route_date.isoformat(),
+                "technician_id": str(item.technician_id),
+                "technician_name": item.technician_name,
+                "status": item.status,
+                "visit_count": item.visit_count,
+                "total_hours": item.total_hours,
+            }
+            for item in items
+        ]
+
     return templates.TemplateResponse("routes/dashboard.html", {
         "request": request,
         "user": user,
@@ -681,6 +706,8 @@ async def routes_page(
         "selected_region": selected_region,
         "start_date": "2027-01-01",
         "end_date": "2027-12-31",
+        "preloaded_routes_json": json.dumps(preloaded_routes),
+        "preloaded_total": preloaded_total,
     })
 
 

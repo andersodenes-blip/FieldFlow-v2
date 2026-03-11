@@ -594,3 +594,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Map already initialized | Sjekk `container._leaflet_id` for Leaflet double-init |
 | Alpine `@change` ikke fungerer | Bruk `$watch('variabel', ...)` i stedet |
 | 401 pa dashboard/week-data | Cookie mangler, sjekk at login setter access_token cookie |
+| Ruteplanlegging viser 0 jobber ved innlasting | Fikset: server-side preloading av ruter i routes_page() |
