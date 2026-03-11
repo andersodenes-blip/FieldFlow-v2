@@ -701,8 +701,7 @@ function routeDashboard() {
   const regionNames = { {% for r in regions %}'{{ r.id }}': '{{ r.name }}',{% endfor %} };
   const monthNames = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
   const dayNames = ['Man','Tir','Ons','Tor','Fre'];
-  const preloadedRoutes = {{ preloaded_routes_json|safe }};
-  const preloadedTotal = {{ preloaded_total }};
+  const routeCache = {{ all_routes_json|safe }};
 
   const statusLabels = {
     unscheduled: 'Uplanlagt', scheduled: 'Planlagt', in_progress: 'Under arbeid',
@@ -770,18 +769,8 @@ function routeDashboard() {
         if (newVal && newVal !== oldVal) this.onRegionChange();
       });
 
-      // Use server-side preloaded routes (avoids client-side auth timing issues)
-      if (preloadedRoutes.length > 0) {
-        this.routes = preloadedRoutes;
-        this.totalRoutes = preloadedTotal;
-        this.totalVisits = this.routes.reduce((s, r) => s + r.visit_count, 0);
-        this.totalJobs = this.totalVisits;
-        this.extractTechnicians();
-        this.filterByTech();
-        this.buildCalWeek();
-      } else if (this.regionId) {
-        this.loadRoutes();
-      }
+      // Load from cache (all regions preloaded server-side)
+      this.applyRouteData(this.regionId);
     },
 
     async apiCall(method, url, body) {
@@ -804,6 +793,8 @@ function routeDashboard() {
           this.planResult = await resp.json();
           this.jobsWithoutCoords = this.planResult.jobs_without_coords;
           this.showToast('Planlegging fullfort: ' + this.planResult.routes_created + ' ruter', 'success');
+          // Invalidate cache for this region and reload from API
+          delete routeCache[this.regionId];
           await this.loadRoutes();
         } else if (resp) {
           const errText = await resp.text();
@@ -817,7 +808,32 @@ function routeDashboard() {
 
     onRegionChange() {
       this.regionName = regionNames[this.regionId] || '';
-      this.loadRoutes();
+      // Update URL so refresh remembers selected region
+      const url = new URL(window.location);
+      url.searchParams.set('region_id', this.regionId);
+      history.replaceState(null, '', url);
+      // Use cached data or fetch
+      this.applyRouteData(this.regionId);
+    },
+
+    applyRouteData(rid) {
+      if (!rid) return;
+      const cached = routeCache[rid];
+      if (cached) {
+        this.routes = cached.items;
+        this.totalRoutes = cached.total;
+        this.totalVisits = this.routes.reduce((s, r) => s + r.visit_count, 0);
+        this.totalJobs = this.totalVisits;
+        this.extractTechnicians();
+        this.selectedTechId = null;
+        this.filterByTech();
+        this.selectedRoute = null;
+        this.selectedRouteId = null;
+        if (this.routeLayer) this.routeLayer.clearLayers();
+        this.buildCalWeek();
+      } else {
+        this.loadRoutes();
+      }
     },
 
     async loadRoutes() {
@@ -826,6 +842,8 @@ function routeDashboard() {
       const resp = await this.apiCall('GET', '/routes?' + params.toString());
       if (resp && resp.ok) {
         const data = await resp.json();
+        // Update cache with fresh data
+        routeCache[this.regionId] = { items: data.items, total: data.total };
         this.routes = data.items;
         this.totalRoutes = data.total;
         this.totalVisits = this.routes.reduce((s, r) => s + r.visit_count, 0);

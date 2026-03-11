@@ -409,7 +409,7 @@ SELECT id, name FROM regions WHERE tenant_id = 'd1372aa8-46d5-4a5c-a439-132e285f
 | GET | `/app/jobs` | Cookie | Jobbliste med filter |
 | GET | `/app/jobs/table` | Cookie | Jobb-tabell (HTMX) |
 | GET | `/app/jobs/{id}` | Cookie | Jobb-detaljside |
-| GET | `/app/routes` | Cookie | Ruteplanlegging |
+| GET | `/app/routes` | Cookie | Ruteplanlegging (preloader alle regioners ruter server-side) |
 
 ### Paginering (alle list-endepunkter)
 ```json
@@ -594,4 +594,5 @@ git add -A && git commit -m "beskrivelse" && git push
 | Map already initialized | Sjekk `container._leaflet_id` for Leaflet double-init |
 | Alpine `@change` ikke fungerer | Bruk `$watch('variabel', ...)` i stedet |
 | 401 pa dashboard/week-data | Cookie mangler, sjekk at login setter access_token cookie |
-| Ruteplanlegging viser 0 jobber ved innlasting | Fikset: server-side preloading av ruter i routes_page() |
+| Ruteplanlegging viser 0 jobber ved innlasting | Fikset: server-side preloading av ruter for alle regioner i routes_page() |
+| Kalender nullstilles ved regionbytte | Fikset: all_routes_json cache i JS, instant regionbytte uten API-kall |
