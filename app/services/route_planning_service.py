@@ -15,7 +15,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job, JobStatus
@@ -550,6 +550,7 @@ class RoutePlanningService:
         """Build Route, ScheduledVisit, and RouteVisit records.
 
         Jobs are already ordered by nearest-neighbor from distribution.
+        Checks for existing routes to prevent duplicates per (tech, date).
         """
         routes_created = 0
         visits_assigned = 0
@@ -565,14 +566,29 @@ class RoutePlanningService:
                 if not jobs:
                     continue
 
-                route = Route(
-                    tenant_id=tenant_id,
-                    region_id=region_id,
-                    route_date=route_date,
-                    technician_id=tech_id,
-                    status=RouteStatus.draft,
+                # Check for existing route to prevent duplicates
+                existing = await self.db.execute(
+                    select(Route).where(
+                        Route.tenant_id == tenant_id,
+                        Route.technician_id == tech_id,
+                        Route.route_date == route_date,
+                    )
                 )
-                route = await self.route_repo.create(route)
+                route = existing.scalar_one_or_none()
+                if route:
+                    # Reuse existing route — delete old visits first
+                    await self.db.execute(
+                        delete(RouteVisit).where(RouteVisit.route_id == route.id)
+                    )
+                else:
+                    route = Route(
+                        tenant_id=tenant_id,
+                        region_id=region_id,
+                        route_date=route_date,
+                        technician_id=tech_id,
+                        status=RouteStatus.draft,
+                    )
+                    route = await self.route_repo.create(route)
                 routes_created += 1
 
                 route_visits = []

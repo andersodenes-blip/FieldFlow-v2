@@ -631,3 +631,5 @@ git add -A && git commit -m "beskrivelse" && git push
 | Kalender-klikk (uke-tabs, dager) fungerer ikke | Fikset: `document._dash=this` i init(), ikke `_x_dataStack` |
 | 7.5t-verifisering viser OK men dag overskrider | Fikset: verifisering ekskluderer naa hjem→jobb reisetid, teller kun arbeid + mellom-jobb |
 | Flerdagsjobb + ny jobb overskrider 7.5t | Fikset: `_place_job(count_travel=False)` for forste jobb, hjem→jobb teller ikke |
+| Bergen tekniker 8-20t reisetid, kun 5 besok | Fikset: koordinater var NULL/feil i DB, test-script setter naa alle coords for planlegging |
+| Duplikatruter samme dag per tekniker | Fikset: `_build_routes` sjekker eksisterende ruter for (tech,dato), gjenbruker + test dedup |

@@ -27,6 +27,22 @@ REGIONS = ["Stavanger", "Oslo", "Bergen", "Drammen", "Innlandet", "Østfold"]
 START_DATE = date(2027, 1, 1)
 END_DATE = date(2027, 12, 31)
 
+# Canonical technician home coordinates (all regions)
+TECH_COORDINATES = {
+    "Helge Bratland": (58.8636, 5.7430),
+    "Gunnar Sunde": (58.9750, 5.6550),
+    "Eric Grønneberg": (60.0148, 11.0476),
+    "Johnny Andresen": (59.4643, 10.6941),
+    "Ardian Lomesi": (60.3158, 5.3457),
+    "John Eirik Duley Sande": (60.4603, 5.3329),
+    "Samuel Gonzales": (59.8938, 9.9203),
+    "Waseem Ghannam": (59.7799, 9.8993),
+    "Truls Iversen": (60.7073, 11.1090),
+    "Kristian Høkeli": (59.2181, 10.9298),
+    "Kristoffer Sandaker": (59.4340, 10.6590),
+    "Peder Skjeltorp": (59.3770, 10.7140),
+}
+
 
 async def get_asyncpg_url() -> str:
     return os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
@@ -52,6 +68,64 @@ async def main():
         WHERE name = 'Truls Iversen' AND tenant_id = $1
     """, TENANT_ID)
     print(f"  Truls Iversen start_date satt: {truls_result}")
+
+    # ── Fix technician coordinates ──────────────────────────────────────
+    print("\n=== Fikser tekniker-koordinater ===")
+    for name, (lat, lon) in TECH_COORDINATES.items():
+        result = await conn.execute("""
+            UPDATE technicians SET home_latitude = $1, home_longitude = $2
+            WHERE name = $3 AND tenant_id = $4
+        """, lat, lon, name, TENANT_ID)
+        count = int(result.split()[-1])
+        if count > 0:
+            print(f"  {name:25s} -> {lat:.4f}, {lon:.4f}")
+        else:
+            print(f"  {name:25s} -> IKKE FUNNET (ignorerer)")
+
+    # ── Deduplicate technicians (keep one per name per region) ──────────
+    print("\n=== Sjekker duplikat-teknikere ===")
+    dupes = await conn.fetch("""
+        SELECT t.name, r.name as region, COUNT(*) as cnt
+        FROM technicians t
+        JOIN regions r ON t.region_id = r.id
+        WHERE t.tenant_id = $1 AND t.is_active = true
+        GROUP BY t.name, r.name
+        HAVING COUNT(*) > 1
+    """, TENANT_ID)
+    if dupes:
+        for d in dupes:
+            print(f"  DUPLIKAT: {d['name']} ({d['region']}) x{d['cnt']}")
+            # Keep the one with coordinates, deactivate the rest
+            ids = await conn.fetch("""
+                SELECT t.id, t.home_latitude FROM technicians t
+                JOIN regions r ON t.region_id = r.id
+                WHERE t.name = $1 AND r.name = $2 AND t.tenant_id = $3 AND t.is_active = true
+                ORDER BY t.home_latitude IS NOT NULL DESC, t.created_at ASC
+            """, d['name'], d['region'], TENANT_ID)
+            keep_id = ids[0]['id']
+            deactivate_ids = [row['id'] for row in ids[1:]]
+            for did in deactivate_ids:
+                await conn.execute(
+                    "UPDATE technicians SET is_active = false WHERE id = $1", did
+                )
+            print(f"    Beholder {keep_id}, deaktiverte {len(deactivate_ids)} duplikater")
+    else:
+        print("  Ingen duplikater funnet")
+
+    # Verify all technicians
+    print("\n=== Tekniker-oversikt ===")
+    techs = await conn.fetch("""
+        SELECT t.name, r.name as region, t.home_latitude, t.home_longitude, t.is_active
+        FROM technicians t
+        JOIN regions r ON t.region_id = r.id
+        WHERE t.tenant_id = $1
+        ORDER BY r.name, t.name
+    """, TENANT_ID)
+    for t in techs:
+        lat = f"{t['home_latitude']:.4f}" if t['home_latitude'] else "NULL"
+        lon = f"{t['home_longitude']:.4f}" if t['home_longitude'] else "NULL"
+        active = "aktiv" if t['is_active'] else "INAKTIV"
+        print(f"  {t['region']:15s} | {t['name']:25s} | {lat}, {lon} | {active}")
 
     # Get region IDs
     rows = await conn.fetch(
