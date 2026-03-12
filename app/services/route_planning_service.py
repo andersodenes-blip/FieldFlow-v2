@@ -455,6 +455,11 @@ class RoutePlanningService:
         Uses nearest-neighbor to pick next job during distribution.
         Handles multi-day jobs via pending_work (processed before new jobs).
         Respects technician start_date.
+
+        Multi-day job rule: non-final parts of multi-day jobs get the day
+        exclusively (no other jobs). Only the LAST part (e.g., Dag 2 av 2)
+        can be combined with new jobs if time allows. If a new job is split
+        during placement, no more jobs are added that day.
         """
         result: dict[uuid.UUID, dict[date, list[JobWithCoords]]] = {}
         warnings: list[str] = []
@@ -496,10 +501,14 @@ class RoutePlanningService:
                 cur_lat, cur_lon = home_lat, home_lon
                 day_jobs: list[JobWithCoords] = []
                 first_placed = False  # Track if first job of day has been placed
+                multi_day_exclusive = False  # Day reserved for multi-day job
 
                 # ── Process pending_work FIRST (leftover from multi-day splits) ──
                 while pending_work and hours_today < max_hours:
                     pw = pending_work.pop(0)
+                    is_nonfinal = pw.total_parts > 1 and pw.part < pw.total_parts
+                    pending_len = len(pending_work)
+
                     hours_today, cur_lat, cur_lon, placed = self._place_job(
                         pw, hours_today, cur_lat, cur_lon, max_hours, config,
                         day_jobs, pending_work,
@@ -507,25 +516,55 @@ class RoutePlanningService:
                     )
                     if placed:
                         first_placed = True
+                        # Non-final part of multi-day job → no other jobs today
+                        if is_nonfinal:
+                            multi_day_exclusive = True
+                        # Job was split (new leftover) → no other jobs today
+                        if len(pending_work) > pending_len:
+                            multi_day_exclusive = True
                     if not placed:
                         break  # day full — pending stays for next day
 
-                # ── Process new jobs using nearest-neighbor ──
-                while remaining_jobs and hours_today < max_hours:
-                    nearest_idx = min(
-                        range(len(remaining_jobs)),
-                        key=lambda i: haversine_km(cur_lat, cur_lon, remaining_jobs[i].latitude, remaining_jobs[i].longitude),
-                    )
-                    job = remaining_jobs.pop(nearest_idx)
-                    hours_today, cur_lat, cur_lon, placed = self._place_job(
-                        job, hours_today, cur_lat, cur_lon, max_hours, config,
-                        day_jobs, pending_work,
-                        count_travel=first_placed,
-                    )
-                    if placed:
-                        first_placed = True
-                    if not placed:
-                        break  # day full
+                # ── Process new jobs only if day isn't reserved ──
+                if not multi_day_exclusive:
+                    while remaining_jobs and hours_today < max_hours:
+                        nearest_idx = min(
+                            range(len(remaining_jobs)),
+                            key=lambda i: haversine_km(cur_lat, cur_lon, remaining_jobs[i].latitude, remaining_jobs[i].longitude),
+                        )
+                        job = remaining_jobs.pop(nearest_idx)
+                        pending_len = len(pending_work)
+
+                        hours_today, cur_lat, cur_lon, placed = self._place_job(
+                            job, hours_today, cur_lat, cur_lon, max_hours, config,
+                            day_jobs, pending_work,
+                            count_travel=first_placed,
+                        )
+                        if placed:
+                            first_placed = True
+                            # Job was split → multi-day start, stop adding more
+                            if len(pending_work) > pending_len:
+                                break
+                        if not placed:
+                            break  # day full
+
+                # ── Post-check: enforce multi-day exclusivity ──
+                # If any job on this day is a non-final multi-day part,
+                # remove all OTHER jobs and push them back to remaining_jobs.
+                if len(day_jobs) > 1:
+                    nonfinal_idx = None
+                    for idx, dj in enumerate(day_jobs):
+                        is_nonfinal = dj.total_parts > 1 and dj.part < dj.total_parts
+                        if is_nonfinal:
+                            nonfinal_idx = idx
+                            break
+                    if nonfinal_idx is not None:
+                        # Keep only the multi-day part
+                        kept = day_jobs[nonfinal_idx]
+                        evicted = [dj for i, dj in enumerate(day_jobs) if i != nonfinal_idx]
+                        day_jobs = [kept]
+                        # Push evicted jobs back (they'll be re-placed on future days)
+                        remaining_jobs = evicted + remaining_jobs
 
                 if day_jobs:
                     result[tech_id][day] = day_jobs

@@ -427,6 +427,11 @@ Params: `page` (default 1), `page_size` (default 20, max 100), `sort_by`, `sort_
 - Reisetid hjem→forste jobb teller IKKE mot 7.5t (men logges i drive_minutes)
 - Reisetid siste jobb→hjem teller IKKE mot 7.5t
 - `_place_job(count_travel=False)` for forste jobb pa dagen, `True` for resten
+- **Flerdagersjobb-regel:** ikke-siste del (Dag 1/2, Dag 2/3) = eneste jobb den dagen
+- Kun siste del (Dag 2/2, Dag 3/3) KAN kombineres med ny jobb under 7.5t
+- Hvis ny jobb splittes (blir flerdagers) → ingen flere jobber den dagen
+- `multi_day_exclusive` flag + post-sjekk i `_distribute_across_days` handhever dette
+- Post-sjekk: etter dag er fylt, hvis ikke-siste flerdagersdel finnes → evict andre jobber tilbake til ko
 - Store jobber splittes over flere dager (f.eks. 20t → 3 dager)
 - `route_visit.estimated_work_hours` = kun tildelt del (ikke total SLA)
 - Norske helligdager og helger hoppes over (Easter-algoritme)
@@ -633,3 +638,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Flerdagsjobb + ny jobb overskrider 7.5t | Fikset: `_place_job(count_travel=False)` for forste jobb, hjem→jobb teller ikke |
 | Bergen tekniker 8-20t reisetid, kun 5 besok | Fikset: koordinater var NULL/feil i DB, test-script setter naa alle coords for planlegging |
 | Duplikatruter samme dag per tekniker | Fikset: `_build_routes` sjekker eksisterende ruter for (tech,dato), gjenbruker + test dedup |
+| Flerdagersjobb + ny jobb pa samme dag | Fikset: `multi_day_exclusive` flag blokkerer nye jobber pa ikke-siste dager |
