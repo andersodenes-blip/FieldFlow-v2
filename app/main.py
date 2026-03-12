@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from app.config import settings
 from app.routers import admin, audit_events, auth, customers, frontend, health, imports, jobs, locations, organizations, regions, routes, service_contracts, technicians
@@ -18,6 +19,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FieldFlow v2", version="0.1.0", lifespan=lifespan)
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/app/dashboard")
+
 
 app.include_router(health.router)
 app.include_router(auth.router)

@@ -292,6 +292,7 @@ SELECT id, name FROM regions WHERE tenant_id = 'd1372aa8-46d5-4a5c-a439-132e285f
 ### System
 | Metode | Sti | Auth | Beskrivelse |
 |--------|-----|------|-------------|
+| GET | `/` | Ingen | Redirect til `/app/dashboard` |
 | GET | `/health` | Ingen | Helsesjekk (status + DB) |
 
 ### Auth (`/auth`)
