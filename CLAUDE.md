@@ -18,7 +18,7 @@ Dette er ikke valgfritt — CLAUDE.md er prosjektets hukommelse og ma alltid vae
 - **Frontend:** Jinja2 + HTMX + Alpine.js + Tailwind CSS
 - **Python:** 3.12 pa Railway, 3.14 lokalt
 - **Auth:** Auth0 Organizations (ikke aktivert enna) + JWT (python-jose)
-- **Deploy:** Railway auto-deploy ved push til main
+- **Deploy:** Railway auto-deploy ved push til main, `railway.toml` med startCommand
 - **Mal:** Lansering 1. januar 2027
 
 V1 og V2 er adskilte kodebaser. Ingen krysskopiering.
@@ -156,6 +156,8 @@ app/
       detail.html        # Jobb-detaljside
     routes/
       dashboard.html     # Ruteplanlegging med kart
+
+railway.toml               # Railway deploy config (startCommand)
 
 alembic/
   env.py
@@ -715,3 +717,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Flerdagersjobb + ny jobb pa samme dag | Fikset: `multi_day_exclusive` flag blokkerer nye jobber pa ikke-siste dager |
 | Patologisk splitting: 2t-jobb delt i 3+ deler | Fikset: kun splitt jobber > 7.5t. Sma jobber pushes hel til neste dag |
 | Feil rekkefølge pa flerdagers dag-nummer | Fikset: `_build_routes` beregner part/total fra kronologiske datoer, frontend sorterer dates-liste |
+| Railway "No start command found" | Fikset: opprettet `railway.toml` med startCommand (manglet etter v1-kopi) |
