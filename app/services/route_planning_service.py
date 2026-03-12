@@ -1,13 +1,16 @@
 # Copyright (c) 2026 Anders Ødenes. All rights reserved.
-"""Core route planning algorithms.
+"""Route planning engine — v1-style FIFO distribution.
 
-Implements: haversine distance with correction factor, geo-based technician
-assignment (equal_distribution), travel-aware daily capacity (7.5h), nearest-
-neighbor route ordering during distribution, multi-day job splitting with
-pending_work priority, and Norwegian holiday exclusion.
+Ported from v1 geo_plan_stavanger.py core logic, adapted to SQLAlchemy async.
 
-7.5h rule: work_hours + inter-job travel counts. Home→first_job and
-last_job→home travel is logged but NOT counted against the limit.
+Distribution: weighted scoring (geo 0.4, month 0.4, capacity 0.2).
+Day scheduling: simple FIFO with nearest-neighbor job selection.
+Splitting: only jobs > 7.5h get split across days.
+
+7.5h rule:
+  - home → first_job travel: NOT counted against 7.5h (but stored in drive_minutes)
+  - inter-job travel: COUNTED against 7.5h
+  - last_job → home travel: NOT counted against 7.5h
 """
 import math
 import uuid
@@ -40,8 +43,6 @@ class JobWithCoords:
     latitude: float
     longitude: float
     work_hours: float
-    part: int = 1
-    total_parts: int = 1
     drive_minutes: int = 0  # estimated drive time from previous stop
 
 
@@ -60,13 +61,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 def estimate_drive_minutes(
     lat1: float, lon1: float, lat2: float, lon2: float, config: RegionRouteConfig
 ) -> float:
-    """Estimate driving time in minutes between two points.
-
-    Formula from v1:
-      travel_hours = (distance_km * correction_factor) / travel_speed_kmh
-                   + parking_minutes / 60
-    Returns minutes.
-    """
+    """Estimate driving time in minutes between two points."""
     km = haversine_km(lat1, lon1, lat2, lon2) * config.haversine_correction_factor
     return (km / config.travel_speed_kmh) * 60 + config.parking_minutes
 
@@ -153,15 +148,13 @@ class RoutePlanningService:
         Steps:
         1. Load region config, technicians, and unscheduled jobs
         2. Filter jobs with valid coordinates
-        3. Assign jobs to technicians (equal_distribution with geo weighting)
-        4. Distribute across working days (travel-aware, 7.5h incl. travel)
+        3. Assign jobs to technicians (weighted scoring)
+        4. Distribute across working days (v1-style FIFO)
         5. Build Route + RouteVisit + ScheduledVisit records
         """
-        # Load region
         region = await self._get_region(region_id, tenant_id)
         config = get_region_config(region.name)
 
-        # Load active technicians for this region
         technicians = await self._get_technicians(region_id, tenant_id)
         if not technicians:
             return {
@@ -171,7 +164,6 @@ class RoutePlanningService:
                 "capacity_warnings": ["Ingen aktive teknikere i regionen"],
             }
 
-        # Load all unscheduled jobs for the region
         all_jobs = await self._get_unscheduled_jobs(region_id, tenant_id)
         if not all_jobs:
             return {
@@ -181,7 +173,6 @@ class RoutePlanningService:
                 "capacity_warnings": [],
             }
 
-        # Separate jobs with/without coordinates
         jobs_with_coords = [j for j in all_jobs if j.latitude is not None]
         jobs_without_coords = len(all_jobs) - len(jobs_with_coords)
 
@@ -193,17 +184,14 @@ class RoutePlanningService:
                 "capacity_warnings": ["Alle jobber mangler koordinater"],
             }
 
-        # Delete existing draft routes for this period
         await self.route_repo.delete_routes_for_region_dates(
             tenant_id, region_id, start_date, end_date
         )
 
-        # Step 1: Assign jobs to technicians (geo-weighted equal distribution)
         tech_jobs = await self._assign_jobs_to_technicians(
             jobs_with_coords, technicians, config, start_date
         )
 
-        # Step 2: Distribute across working days (travel-aware capacity)
         working_days = self._get_working_days(start_date, end_date)
         if not working_days:
             return {
@@ -217,7 +205,6 @@ class RoutePlanningService:
             tech_jobs, working_days, technicians, config
         )
 
-        # Step 3: Build routes (jobs already ordered by nearest-neighbor)
         routes_created, visits_assigned = await self._build_routes(
             tenant_id, region_id, tech_day_jobs, technicians, config
         )
@@ -230,6 +217,8 @@ class RoutePlanningService:
             "jobs_without_coords": jobs_without_coords,
             "capacity_warnings": capacity_warnings,
         }
+
+    # ── Data loading ────────────────────────────────────────────────
 
     async def _get_region(self, region_id: uuid.UUID, tenant_id: uuid.UUID) -> Region:
         result = await self.db.execute(
@@ -254,11 +243,7 @@ class RoutePlanningService:
     async def _get_unscheduled_jobs(
         self, region_id: uuid.UUID, tenant_id: uuid.UUID,
     ) -> list[JobWithCoords]:
-        """Load ALL unscheduled jobs for a region.
-
-        Work hours come from service_contract.sla_hours:
-        - NULL or 0 -> default 1.0 hour
-        """
+        """Load unscheduled jobs for a region. sla_hours NULL/0 → default 1.0h."""
         region_name_sq = (
             select(Region.name)
             .where(Region.id == region_id)
@@ -278,10 +263,7 @@ class RoutePlanningService:
         )
         jobs = []
         for job, location, sla_hours in result.all():
-            if not sla_hours or sla_hours <= 0:
-                work_hours = 1.0
-            else:
-                work_hours = float(sla_hours)
+            work_hours = float(sla_hours) if sla_hours and sla_hours > 0 else 1.0
             jobs.append(JobWithCoords(
                 job_id=job.id,
                 title=job.title,
@@ -292,6 +274,8 @@ class RoutePlanningService:
             ))
         return jobs
 
+    # ── Job assignment (weighted scoring) ───────────────────────────
+
     async def _assign_jobs_to_technicians(
         self,
         jobs: list[JobWithCoords],
@@ -301,46 +285,42 @@ class RoutePlanningService:
     ) -> dict[uuid.UUID, list[JobWithCoords]]:
         """Assign jobs to technicians using weighted scoring.
 
-        equal_distribution mode: each technician gets roughly equal share.
-        Scoring weights: geo distance (0.4), monthly balance (0.4), capacity (0.2).
+        Scoring: geo distance (0.4), monthly balance (0.4), capacity (0.2).
+        Jobs sorted farthest-from-centroid first for better distribution.
         """
         weights = config.reassign_weights
 
-        # Get existing visit counts per technician for the month
         tech_ids = [t.id for t in technicians]
         month_counts = await self.visit_repo.count_visits_per_technician_month(
             technicians[0].tenant_id, tech_ids, reference_date.year, reference_date.month
         )
 
-        # Calculate centroid of all jobs for geo scoring
         avg_lat = sum(j.latitude for j in jobs) / len(jobs)
         avg_lon = sum(j.longitude for j in jobs) / len(jobs)
 
-        # Track assignment counts during this planning run
         assignment_counts: dict[uuid.UUID, int] = {t.id: 0 for t in technicians}
         tech_jobs: dict[uuid.UUID, list[JobWithCoords]] = {t.id: [] for t in technicians}
 
-        # Sort jobs by distance from centroid (farthest first) for better distribution
-        jobs_sorted = sorted(jobs, key=lambda j: haversine_km(avg_lat, avg_lon, j.latitude, j.longitude), reverse=True)
+        jobs_sorted = sorted(
+            jobs,
+            key=lambda j: haversine_km(avg_lat, avg_lon, j.latitude, j.longitude),
+            reverse=True,
+        )
 
         for job in jobs_sorted:
             best_tech_id = None
             best_score = float("inf")
 
             for tech in technicians:
-                # Geo score: distance from technician home to job
                 tech_lat = tech.home_latitude or avg_lat
                 tech_lon = tech.home_longitude or avg_lon
                 geo_dist = haversine_km(tech_lat, tech_lon, job.latitude, job.longitude)
-                max_dist = 100.0
-                geo_score = min(geo_dist / max_dist, 1.0)
+                geo_score = min(geo_dist / 100.0, 1.0)
 
-                # Month balance score: prefer technicians with fewer visits this month
                 total_month = month_counts.get(tech.id, 0) + assignment_counts[tech.id]
                 avg_month = sum(month_counts.get(t.id, 0) + assignment_counts[t.id] for t in technicians) / len(technicians)
                 month_score = total_month / max(avg_month, 1.0) if avg_month > 0 else 0.0
 
-                # Capacity score: prefer technicians with fewer assignments in this batch
                 avg_assigned = sum(assignment_counts.values()) / len(technicians)
                 capacity_score = assignment_counts[tech.id] / max(avg_assigned, 1.0) if avg_assigned > 0 else 0.0
 
@@ -358,9 +338,10 @@ class RoutePlanningService:
 
         return tech_jobs
 
+    # ── Working days ────────────────────────────────────────────────
+
     def _get_working_days(self, start_date: date, end_date: date) -> list[date]:
-        """Get working days (Mon-Fri, excluding Norwegian holidays) in the date range."""
-        # Collect holidays for all years in the range
+        """Mon-Fri excluding Norwegian holidays."""
         holidays: set[date] = set()
         for year in range(start_date.year, end_date.year + 1):
             holidays |= get_norwegian_holidays(year)
@@ -373,85 +354,7 @@ class RoutePlanningService:
             current += timedelta(days=1)
         return days
 
-    def _place_job(
-        self,
-        job: JobWithCoords,
-        hours_today: float,
-        cur_lat: float,
-        cur_lon: float,
-        max_hours: float,
-        config: RegionRouteConfig,
-        day_jobs: list[JobWithCoords],
-        pending_work: list[JobWithCoords],
-        count_travel: bool = True,
-    ) -> tuple[float, float, float, bool]:
-        """Place a single job on the current day.
-
-        Travel from home to first job is stored in drive_minutes but does NOT
-        count against the 7.5h capacity limit (count_travel=False).
-        Travel between jobs DOES count (count_travel=True).
-
-        Returns (new_hours_today, new_cur_lat, new_cur_lon, placed).
-        placed=False means the job was pushed to pending_work unchanged.
-        """
-        travel_min = estimate_drive_minutes(cur_lat, cur_lon, job.latitude, job.longitude, config)
-        # Home→first job travel is logged but not counted against capacity
-        capacity_travel_hours = (travel_min / 60.0) if count_travel else 0.0
-        capacity_cost = capacity_travel_hours + job.work_hours
-        space_left = max_hours - hours_today
-
-        if space_left <= 0:
-            # Day already full — push entire job to pending
-            pending_work.insert(0, job)
-            return hours_today, cur_lat, cur_lon, False
-
-        if capacity_cost <= space_left:
-            # Whole job fits today
-            job.drive_minutes = int(travel_min)
-            day_jobs.append(job)
-            return hours_today + capacity_cost, job.latitude, job.longitude, True
-
-        # Job doesn't fit whole today.
-        # Only split genuinely large jobs (> max_hours). Small jobs that
-        # don't fit are pushed whole to the next day. This avoids
-        # pathological cascading splits where a 2h job gets split into
-        # 3+ parts, each non-final part wasting an exclusive day.
-        if job.work_hours <= max_hours:
-            pending_work.insert(0, job)
-            return hours_today, cur_lat, cur_lon, False
-
-        # Large job (> 7.5h) — partial fit, split the job
-        work_today = round(space_left - capacity_travel_hours, 2)
-        if work_today <= 0:
-            # Not even travel fits — push to next day
-            pending_work.insert(0, job)
-            return hours_today, cur_lat, cur_lon, False
-
-        leftover_hours = round(job.work_hours - work_today, 2)
-
-        # Ensure total_parts reflects the actual split (even for jobs < 7.5h
-        # that are split due to space constraints on the current day)
-        actual_total = max(job.total_parts, job.part + 1)
-
-        today_part = JobWithCoords(
-            job_id=job.job_id, title=job.title, address=job.address,
-            latitude=job.latitude, longitude=job.longitude,
-            work_hours=work_today,
-            part=job.part, total_parts=actual_total,
-            drive_minutes=int(travel_min),
-        )
-        day_jobs.append(today_part)
-
-        if leftover_hours > 0:
-            leftover = JobWithCoords(
-                job_id=job.job_id, title=job.title, address=job.address,
-                latitude=job.latitude, longitude=job.longitude,
-                work_hours=leftover_hours,
-                part=job.part + 1, total_parts=actual_total,
-            )
-            pending_work.insert(0, leftover)
-
-        return max_hours, job.latitude, job.longitude, True
+    # ── Day distribution (v1-style FIFO) ────────────────────────────
 
     def _distribute_across_days(
         self,
@@ -460,19 +363,18 @@ class RoutePlanningService:
         technicians: list[Technician],
         config: RegionRouteConfig,
     ) -> tuple[dict[uuid.UUID, dict[date, list[JobWithCoords]]], list[str]]:
-        """Distribute jobs across working days with travel-aware capacity.
+        """Distribute jobs across working days — v1-style simple FIFO.
 
-        Daily capacity: 7.5h of work_hours + inter-job travel.
-        Travel from home to first job is logged but NOT counted against 7.5h.
-        Travel from last job back home is also NOT counted.
-        Uses nearest-neighbor to pick next job during distribution.
-        Handles multi-day jobs via pending_work (processed before new jobs).
-        Respects technician start_date.
+        For each technician, iterate over working days. On each day:
+        1. Process pending work (leftover from large job splits) first
+        2. Pick nearest unplaced job, check if it fits
+        3. If whole job fits → place it, continue
+        4. If job is large (> max_hours) → split, place what fits, rest to pending
+        5. If small job doesn't fit → stop this day, try next day
 
-        Multi-day job rule: non-final parts of multi-day jobs get the day
-        exclusively (no other jobs). Only the LAST part (e.g., Dag 2 av 2)
-        can be combined with new jobs if time allows. If a new job is split
-        during placement, no more jobs are added that day.
+        7.5h rule:
+        - First job of day: only work_hours counted (home→job travel excluded)
+        - Subsequent jobs: work_hours + inter-job travel counted
         """
         result: dict[uuid.UUID, dict[date, list[JobWithCoords]]] = {}
         warnings: list[str] = []
@@ -485,12 +387,6 @@ class RoutePlanningService:
 
             result[tech_id] = {}
 
-            # Pre-calculate total_parts for multi-day jobs
-            for job in jobs:
-                if job.work_hours > max_hours:
-                    job.total_parts = math.ceil(job.work_hours / max_hours)
-
-            # Filter working days by technician start_date
             tech_start = getattr(tech, "start_date", None)
             tech_days = [d for d in working_days if not tech_start or d >= tech_start]
 
@@ -499,7 +395,6 @@ class RoutePlanningService:
                     warnings.append(f"{tech.name}: ingen arbeidsdager (start_date={tech_start})")
                 continue
 
-            # Tech home position (fallback to first job)
             home_lat = tech.home_latitude or (jobs[0].latitude if jobs else 59.91)
             home_lon = tech.home_longitude or (jobs[0].longitude if jobs else 10.75)
 
@@ -510,79 +405,103 @@ class RoutePlanningService:
             while (pending_work or remaining_jobs) and day_idx < len(tech_days):
                 day = tech_days[day_idx]
                 day_idx += 1
-                hours_today = 0.0
+                daily_hours = 0.0
                 cur_lat, cur_lon = home_lat, home_lon
                 day_jobs: list[JobWithCoords] = []
-                first_placed = False  # Track if first job of day has been placed
-                multi_day_exclusive = False  # Day reserved for multi-day job
+                is_first = True
 
-                # ── Process pending_work FIRST (leftover from multi-day splits) ──
-                while pending_work and hours_today < max_hours:
+                # ── 1. Process pending work (multi-day split leftovers) ──
+                while pending_work and daily_hours < max_hours:
                     pw = pending_work.pop(0)
-                    is_nonfinal = pw.total_parts > 1 and pw.part < pw.total_parts
-                    pending_len = len(pending_work)
-
-                    hours_today, cur_lat, cur_lon, placed = self._place_job(
-                        pw, hours_today, cur_lat, cur_lon, max_hours, config,
-                        day_jobs, pending_work,
-                        count_travel=first_placed,
+                    travel_min = estimate_drive_minutes(
+                        cur_lat, cur_lon, pw.latitude, pw.longitude, config
                     )
-                    if placed:
-                        first_placed = True
-                        # Non-final part of multi-day job → no other jobs today
-                        if is_nonfinal:
-                            multi_day_exclusive = True
-                        # Job was split (new leftover) → no other jobs today
-                        if len(pending_work) > pending_len:
-                            multi_day_exclusive = True
-                    if not placed:
-                        break  # day full — pending stays for next day
+                    travel_h = 0.0 if is_first else travel_min / 60.0
+                    space = max_hours - daily_hours - travel_h
 
-                # ── Process new jobs only if day isn't reserved ──
-                if not multi_day_exclusive:
-                    while remaining_jobs and hours_today < max_hours:
-                        nearest_idx = min(
-                            range(len(remaining_jobs)),
-                            key=lambda i: haversine_km(cur_lat, cur_lon, remaining_jobs[i].latitude, remaining_jobs[i].longitude),
-                        )
-                        job = remaining_jobs.pop(nearest_idx)
-                        pending_len = len(pending_work)
+                    if space <= 0:
+                        pending_work.insert(0, pw)
+                        break
 
-                        hours_today, cur_lat, cur_lon, placed = self._place_job(
-                            job, hours_today, cur_lat, cur_lon, max_hours, config,
-                            day_jobs, pending_work,
-                            count_travel=first_placed,
-                        )
-                        if placed:
-                            first_placed = True
-                            # Job was split → multi-day start, stop adding more
-                            if len(pending_work) > pending_len:
-                                break
-                        if not placed:
-                            break  # day full
+                    work_today = min(pw.work_hours, space)
+                    placed = JobWithCoords(
+                        job_id=pw.job_id, title=pw.title, address=pw.address,
+                        latitude=pw.latitude, longitude=pw.longitude,
+                        work_hours=round(work_today, 2),
+                        drive_minutes=int(travel_min),
+                    )
+                    day_jobs.append(placed)
+                    daily_hours += travel_h + work_today
+                    cur_lat, cur_lon = pw.latitude, pw.longitude
+                    is_first = False
 
-                # ── Post-check: enforce multi-day exclusivity ──
-                # If any job on this day is a non-final multi-day part,
-                # remove all OTHER jobs and push them back to remaining_jobs.
-                if len(day_jobs) > 1:
-                    nonfinal_idx = None
-                    for idx, dj in enumerate(day_jobs):
-                        is_nonfinal = dj.total_parts > 1 and dj.part < dj.total_parts
-                        if is_nonfinal:
-                            nonfinal_idx = idx
+                    leftover = round(pw.work_hours - work_today, 2)
+                    if leftover > 0.01:
+                        pending_work.insert(0, JobWithCoords(
+                            job_id=pw.job_id, title=pw.title, address=pw.address,
+                            latitude=pw.latitude, longitude=pw.longitude,
+                            work_hours=leftover,
+                        ))
+                        break  # After split, no more jobs today
+
+                # ── 2. Process new jobs (nearest-neighbor selection) ──
+                while remaining_jobs and daily_hours < max_hours and not pending_work:
+                    nearest_idx = min(
+                        range(len(remaining_jobs)),
+                        key=lambda i: haversine_km(
+                            cur_lat, cur_lon,
+                            remaining_jobs[i].latitude, remaining_jobs[i].longitude,
+                        ),
+                    )
+                    job = remaining_jobs[nearest_idx]
+
+                    travel_min = estimate_drive_minutes(
+                        cur_lat, cur_lon, job.latitude, job.longitude, config
+                    )
+                    travel_h = 0.0 if is_first else travel_min / 60.0
+                    capacity_cost = travel_h + job.work_hours
+                    space = max_hours - daily_hours
+
+                    if capacity_cost <= space:
+                        # Whole job fits
+                        remaining_jobs.pop(nearest_idx)
+                        job.drive_minutes = int(travel_min)
+                        day_jobs.append(job)
+                        daily_hours += capacity_cost
+                        cur_lat, cur_lon = job.latitude, job.longitude
+                        is_first = False
+                    elif job.work_hours > max_hours:
+                        # Large job (> 7.5h) — split: place what fits today
+                        remaining_jobs.pop(nearest_idx)
+                        work_today = round(space - travel_h, 2)
+                        if work_today <= 0:
+                            remaining_jobs.insert(0, job)
                             break
-                    if nonfinal_idx is not None:
-                        # Keep only the multi-day part
-                        kept = day_jobs[nonfinal_idx]
-                        evicted = [dj for i, dj in enumerate(day_jobs) if i != nonfinal_idx]
-                        day_jobs = [kept]
-                        # Push evicted jobs back (they'll be re-placed on future days)
-                        remaining_jobs = evicted + remaining_jobs
+
+                        placed = JobWithCoords(
+                            job_id=job.job_id, title=job.title, address=job.address,
+                            latitude=job.latitude, longitude=job.longitude,
+                            work_hours=work_today,
+                            drive_minutes=int(travel_min),
+                        )
+                        day_jobs.append(placed)
+                        daily_hours = max_hours
+
+                        leftover = round(job.work_hours - work_today, 2)
+                        if leftover > 0.01:
+                            pending_work.insert(0, JobWithCoords(
+                                job_id=job.job_id, title=job.title, address=job.address,
+                                latitude=job.latitude, longitude=job.longitude,
+                                work_hours=leftover,
+                            ))
+                        break  # After split, no more jobs today
+                    else:
+                        # Small job doesn't fit → stop, try next day
+                        break
 
                 if day_jobs:
                     result[tech_id][day] = day_jobs
 
-            # Report unplaced jobs
             unplaced = len(remaining_jobs) + len(pending_work)
             if unplaced > 0:
                 warnings.append(
@@ -590,6 +509,8 @@ class RoutePlanningService:
                 )
 
         return result, warnings
+
+    # ── Build DB records ────────────────────────────────────────────
 
     async def _build_routes(
         self,
@@ -601,17 +522,14 @@ class RoutePlanningService:
     ) -> tuple[int, int]:
         """Build Route, ScheduledVisit, and RouteVisit records.
 
-        Jobs are already ordered by nearest-neighbor from distribution.
+        Pre-computes chronological part numbers for multi-day jobs.
         Checks for existing routes to prevent duplicates per (tech, date).
         """
         routes_created = 0
         visits_assigned = 0
-        # Track all job_ids we've seen — mark scheduled after all days processed
         all_job_ids: set[uuid.UUID] = set()
 
-        # Pre-compute correct part numbers per job in chronological date order.
-        # The planning engine's internal part/total_parts can become stale when
-        # total_parts grows during splits, so we recompute from actual dates.
+        # Pre-compute chronological part numbers from actual dates
         job_dates: dict[uuid.UUID, list[date]] = defaultdict(list)
         for _tid, day_jobs_inner in tech_day_jobs.items():
             for rd, jlist in day_jobs_inner.items():
@@ -640,7 +558,6 @@ class RoutePlanningService:
                 )
                 route = existing.scalar_one_or_none()
                 if route:
-                    # Reuse existing route — delete old visits first
                     await self.db.execute(
                         delete(RouteVisit).where(RouteVisit.route_id == route.id)
                     )
@@ -657,7 +574,6 @@ class RoutePlanningService:
 
                 route_visits = []
                 for seq, job in enumerate(jobs, 1):
-                    # Use pre-computed chronological part numbers
                     dates_for_job = job_dates.get(job.job_id, [route_date])
                     total_parts_actual = len(dates_for_job)
                     part_actual = dates_for_job.index(route_date) + 1 if route_date in dates_for_job else 1
@@ -690,10 +606,8 @@ class RoutePlanningService:
 
                 await self.route_repo.bulk_create_visits(route_visits)
 
-        scheduled_job_ids = all_job_ids
-
-        # Mark fully scheduled jobs
-        for job_id in scheduled_job_ids:
+        # Mark scheduled jobs
+        for job_id in all_job_ids:
             result = await self.db.execute(
                 select(Job).where(Job.id == job_id)
             )

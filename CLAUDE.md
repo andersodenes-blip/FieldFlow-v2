@@ -426,21 +426,21 @@ Params: `page` (default 1), `page_size` (default 20, max 100), `sort_by`, `sort_
 **Kjernefil:** `app/services/route_planning_service.py`
 **Config:** `app/route_config.py`
 
-### Regler
+### Regler (v1-portet FIFO-motor, 2026-03-12)
 - Maks **7.5t per dag** per tekniker (arbeid + reisetid MELLOM jobber)
 - Reisetid hjem→forste jobb teller IKKE mot 7.5t (men logges i drive_minutes)
 - Reisetid siste jobb→hjem teller IKKE mot 7.5t
-- `_place_job(count_travel=False)` for forste jobb pa dagen, `True` for resten
-- **Flerdagersjobb-regel:** ikke-siste del (Dag 1/2, Dag 2/3) = eneste jobb den dagen
-- Kun siste del (Dag 2/2, Dag 3/3) KAN kombineres med ny jobb under 7.5t
-- Hvis ny jobb splittes (blir flerdagers) → ingen flere jobber den dagen
-- `multi_day_exclusive` flag + post-sjekk i `_distribute_across_days` handhever dette
-- Post-sjekk: etter dag er fylt, hvis ikke-siste flerdagersdel finnes → evict andre jobber tilbake til ko
-- `_place_job` oppdaterer `total_parts` ved split: `max(job.total_parts, job.part + 1)`
+- Forste jobb pa dagen: `is_first=True` → travel_h=0 (ikke telt)
+- **Enkel FIFO-splitting (fra v1):** kun jobber > 7.5t splittes over flere dager
+- Sma jobber som ikke far plass → push HEL til neste dag (aldri splitt)
+- Etter split → ingen flere jobber den dagen (`break` etter pending/split)
+- `pending_work` brukes kun for store jobb-rester (v1 FIFO-ko)
+- **Ingen `multi_day_exclusive`** — fjernet (v1 har det ikke). Flerdagersdeler kan dele dag med andre jobber
+- **Ingen `_place_job`** — logikken er inline i `_distribute_across_days`
 - Store jobber splittes over flere dager (f.eks. 20t → 3 dager)
 - `route_visit.estimated_work_hours` = kun tildelt del (ikke total SLA)
 - Norske helligdager og helger hoppes over (Easter-algoritme)
-- Nearest-neighbor for jobbrekkefolge
+- Nearest-neighbor for jobbrekkefolge under distribusjon
 - Respekterer `technician.start_date`
 - Sletter eksisterende draft-ruter for replanning
 
@@ -471,16 +471,16 @@ sla_hours = round_up(cost / 2 / 1450, nearest 0.5)
 Stavanger-unntak: <7000 kr -> 3t, 7000-15000 -> 6t, >15000 -> formel
 ```
 
-### Kapasitetslogikk
+### Kapasitetslogikk (v1-stil FIFO)
 ```python
-# count_travel=False for forste jobb (hjem→jobb), True for resten (jobb→jobb)
-capacity_travel = travel_hours if count_travel else 0
-capacity_cost = capacity_travel + job.work_hours
-space_left = max_hours - hours_today
-if capacity_cost <= space_left:  # Hele jobben far plass
-elif job.work_hours <= max_hours: # Liten jobb, push HEL til neste dag (ikke splitt)
-elif work_today > 0:             # Stor jobb (>7.5t): split i dag + resten til pending_work
-else:                            # Ikke plass -> neste dag
+# Per dag, for hver jobb:
+travel_h = 0 if is_first else travel_min / 60
+capacity_cost = travel_h + job.work_hours
+space = max_hours - daily_hours
+
+if capacity_cost <= space:        # Hele jobben far plass
+elif job.work_hours > max_hours:  # Stor jobb (>7.5t): split, rest til pending_work
+else:                             # Liten jobb far ikke plass → break, neste dag
 ```
 
 ### Jobb-tildeling
@@ -569,11 +569,11 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 - Kapasitetsvarsler (bjelle-ikon med proaktive advarsler)
 - Kryssregion-forslag (flytt jobber til nabolag-tekniker)
 - ICS kalender-eksport + e-postutsendelse
-- Global optimering (MOVE/SWAP hill-climbing) — v1 har dette i `global_improvement.py`
-- Territory-rapport og belastningsanalyse — v1 har dette i `distribution_framework.py` + `load_balance.py`
+- Global optimering (MOVE/SWAP hill-climbing) — **Fase 1 i migrasjonsplan**
+- Territory-rapport og belastningsanalyse — **Fase 2 i migrasjonsplan**
 - Bompengeestimering fra NVDB API
 - Frie dager per tekniker-visning
-- Google Directions API (trafikk-basert reisetid) — v1 har dette i `day_planner.py`
+- Google Directions API (trafikk-basert reisetid) — **Fase 3 i migrasjonsplan**
 - Primary/secondary tekniker-modus — v1 har dette i `geo_plan_stavanger.py`
 
 ## V1 vs V2 Analyse (2026-03-12)
@@ -643,6 +643,48 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 3. **Type-sikker arkitektur** — dataklasser, UUID, async
 4. **Database-basert** — normaliserte tabeller, RLS-klar, audit trail
 5. **Multi-tenant** — v1 er single-tenant med Excel-filer
+
+## V1 → V2 Migrasjon (2026-03-12)
+
+### Kartlegging
+
+| V1-fil | V1-funksjoner | V2-ekvivalent | Aksjon |
+|--------|--------------|---------------|--------|
+| `geo_plan_stavanger.py` | `haversine()`, `calculate_travel_time()` | `route_planning_service.py` | **Behold v2** — identisk logikk |
+| `geo_plan_stavanger.py` | `get_next_working_day()` | `route_planning_service.py` | **Behold v2** — identisk |
+| `geo_plan_stavanger.py` | `geo_plan_stavanger()` (distribution) | `route_planning_service.py` | **Behold v2** — bedre multi-dag + 7.5t |
+| `global_improvement.py` | `improve_plan()`, `compute_plan_cost()` | *Finnes ikke* | **Port** → `route_optimization_service.py` |
+| `global_improvement.py` | `compute_preferred_technicians()` | *Finnes ikke* | **Port** → `route_optimization_service.py` |
+| `global_improvement.py` | `compute_territory_leakage()` | *Finnes ikke* | **Port** → `route_optimization_service.py` |
+| `distribution_framework.py` | `compute_distribution_scores()` | Enkel scoring i `_assign_jobs` | **Port** → `distribution_service.py` |
+| `distribution_framework.py` | `produce_distribution_report()` | *Finnes ikke* | **Port** → `distribution_service.py` |
+| `load_balance.py` | `compute_window_utilization()` | *Finnes ikke* | **Port** → `load_balance_service.py` |
+| `load_balance.py` | `compute_load_balance_report()` | *Finnes ikke* | **Port** → `load_balance_service.py` |
+| `day_planner.py` | `compute_day_plan()` (Google API) | *Finnes ikke* | **Port senere** (Fase 3) |
+| `day_planner.py` | `compute_week_grid()` | *Finnes ikke* | **Port senere** (Fase 3) |
+
+### Fase 1: Kjernelogikk (FULLFORT 2026-03-12, TESTET)
+- **Slettet:** v2s `_place_job()`, `multi_day_exclusive`, post-check eviction
+- **Portet:** v1s enkle FIFO-splitting fra `geo_plan_stavanger.py`
+- **Beholdt:** v2s weighted scoring, nearest-neighbor, DB-lag, 7.5t-regel
+- **Resultat:** `route_planning_service.py` forenklet fra 705 → ~420 linjer
+- **JobWithCoords:** fjernet `part`/`total_parts` (beregnes i `_build_routes`)
+- **Testresultat (2027):** 1177 ruter, 1956 besok, 0 varsler, 7.5t OK, 11 uten coords
+
+### Neste faser (ikke startet)
+
+**Fase 2: Global optimering**
+- Ny fil: `app/services/route_optimization_service.py`
+- Port: `improve_plan()`, `compute_plan_cost()`, `compute_territory_leakage()`
+- Kall fra `plan_routes()` etter initial fordeling
+
+**Fase 3: Distribusjon og belastningsanalyse**
+- Ny fil: `app/services/distribution_service.py` + `load_balance_service.py`
+- Port analyse-funksjoner fra v1
+
+**Fase 4: Google Directions API (fremtidig)**
+- Ny fil: `app/services/traffic_routing_service.py`
+- Krever Google API-nokkel + caching
 
 ## Nyttige scripts
 
@@ -715,8 +757,8 @@ git add -A && git commit -m "beskrivelse" && git push
 | Flerdagsjobb + ny jobb overskrider 7.5t | Fikset: `_place_job(count_travel=False)` for forste jobb, hjem→jobb teller ikke |
 | Bergen tekniker 8-20t reisetid, kun 5 besok | Fikset: koordinater var NULL/feil i DB, test-script setter naa alle coords for planlegging |
 | Duplikatruter samme dag per tekniker | Fikset: `_build_routes` sjekker eksisterende ruter for (tech,dato), gjenbruker + test dedup |
-| Flerdagersjobb + ny jobb pa samme dag | Fikset: `multi_day_exclusive` flag blokkerer nye jobber pa ikke-siste dager |
-| Patologisk splitting: 2t-jobb delt i 3+ deler | Fikset: kun splitt jobber > 7.5t. Sma jobber pushes hel til neste dag |
+| Flerdagersjobb + ny jobb pa samme dag | V1-stil: eksklusivitet fjernet bevisst, flerdagersdeler kan dele dag med andre jobber |
+| Patologisk splitting: 2t-jobb delt i 3+ deler | Erstattet: v1-stil FIFO splitter kun jobber > 7.5t |
 | Feil rekkefølge pa flerdagers dag-nummer | Fikset: `_build_routes` beregner part/total fra kronologiske datoer, frontend sorterer dates-liste |
 | Railway "No start command found" | Fikset: opprettet `railway.toml` med startCommand (manglet etter v1-kopi) |
 | Ukesvisning tom men maanedsvisning har data | Fikset: week-data brukte INNER JOIN til Job/ServiceContract/Location, endret til outerjoin |
