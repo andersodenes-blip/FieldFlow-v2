@@ -11,3 +11,6 @@ venv/
 .idea/
 .vscode/
 *.db
+
+# V1-kode (kun referanse, ikke del av v2-bygget)
+FieldFlow/
