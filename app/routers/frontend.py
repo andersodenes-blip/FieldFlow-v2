@@ -395,6 +395,7 @@ async def dashboard_week_data(
             if dt_iso not in job_day_info[jid]["dates"]:
                 job_day_info[jid]["dates"].append(dt_iso)
         for jid in job_day_info:
+            job_day_info[jid]["dates"].sort()  # Ensure chronological order
             job_day_info[jid]["total_days"] = len(job_day_info[jid]["dates"])
 
     days: dict = {}

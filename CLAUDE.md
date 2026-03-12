@@ -714,3 +714,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Duplikatruter samme dag per tekniker | Fikset: `_build_routes` sjekker eksisterende ruter for (tech,dato), gjenbruker + test dedup |
 | Flerdagersjobb + ny jobb pa samme dag | Fikset: `multi_day_exclusive` flag blokkerer nye jobber pa ikke-siste dager |
 | Patologisk splitting: 2t-jobb delt i 3+ deler | Fikset: kun splitt jobber > 7.5t. Sma jobber pushes hel til neste dag |
+| Feil rekkefølge pa flerdagers dag-nummer | Fikset: `_build_routes` beregner part/total fra kronologiske datoer, frontend sorterer dates-liste |

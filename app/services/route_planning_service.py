@@ -609,6 +609,18 @@ class RoutePlanningService:
         # Track all job_ids we've seen — mark scheduled after all days processed
         all_job_ids: set[uuid.UUID] = set()
 
+        # Pre-compute correct part numbers per job in chronological date order.
+        # The planning engine's internal part/total_parts can become stale when
+        # total_parts grows during splits, so we recompute from actual dates.
+        job_dates: dict[uuid.UUID, list[date]] = defaultdict(list)
+        for _tid, day_jobs_inner in tech_day_jobs.items():
+            for rd, jlist in day_jobs_inner.items():
+                for j in jlist:
+                    if rd not in job_dates[j.job_id]:
+                        job_dates[j.job_id].append(rd)
+        for jid in job_dates:
+            job_dates[jid].sort()
+
         for tech_id, day_jobs in tech_day_jobs.items():
             tech = next((t for t in technicians if t.id == tech_id), None)
             if not tech:
@@ -645,9 +657,14 @@ class RoutePlanningService:
 
                 route_visits = []
                 for seq, job in enumerate(jobs, 1):
+                    # Use pre-computed chronological part numbers
+                    dates_for_job = job_dates.get(job.job_id, [route_date])
+                    total_parts_actual = len(dates_for_job)
+                    part_actual = dates_for_job.index(route_date) + 1 if route_date in dates_for_job else 1
+
                     notes = None
-                    if job.total_parts > 1:
-                        notes = f"Del {job.part}/{job.total_parts} ({job.work_hours:.1f}t)"
+                    if total_parts_actual > 1:
+                        notes = f"Del {part_actual}/{total_parts_actual} ({job.work_hours:.1f}t)"
 
                     sv = ScheduledVisit(
                         tenant_id=tenant_id,
