@@ -18,7 +18,7 @@ Dette er ikke valgfritt — CLAUDE.md er prosjektets hukommelse og ma alltid vae
 - **Frontend:** Jinja2 + HTMX + Alpine.js + Tailwind CSS
 - **Python:** 3.12 pa Railway, 3.14 lokalt
 - **Auth:** Auth0 Organizations (ikke aktivert enna) + JWT (python-jose)
-- **Deploy:** Railway auto-deploy ved push til main, `railway.toml` med startCommand
+- **Deploy:** Railway auto-deploy ved push til main, `railway.toml` med startCommand (port 8000)
 - **Mal:** Lansering 1. januar 2027
 
 V1 og V2 er adskilte kodebaser. Ingen krysskopiering.
