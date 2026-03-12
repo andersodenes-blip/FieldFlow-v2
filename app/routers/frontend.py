@@ -352,9 +352,9 @@ async def dashboard_week_data(
         .join(Route, RouteVisit.route_id == Route.id)
         .join(Technician, Route.technician_id == Technician.id)
         .join(ScheduledVisit, RouteVisit.scheduled_visit_id == ScheduledVisit.id)
-        .join(Job, ScheduledVisit.job_id == Job.id)
-        .join(ServiceContract, Job.service_contract_id == ServiceContract.id)
-        .join(Location, ServiceContract.location_id == Location.id)
+        .outerjoin(Job, ScheduledVisit.job_id == Job.id)
+        .outerjoin(ServiceContract, Job.service_contract_id == ServiceContract.id)
+        .outerjoin(Location, ServiceContract.location_id == Location.id)
         .where(
             Route.tenant_id == tid,
             Route.region_id == rid,
@@ -404,25 +404,25 @@ async def dashboard_week_data(
         if dt_key not in days:
             days[dt_key] = {"jobs": [], "techs": {}}
 
-        # Determine status label
-        status_val = row.status.value if hasattr(row.status, "value") else str(row.status)
+        # Determine status label (Job may be NULL from outerjoin)
+        status_val = (row.status.value if hasattr(row.status, "value") else str(row.status)) if row.status else "scheduled"
         is_delayed = (
             status_val == "scheduled"
             and row.route_date.isoformat() < today_iso
         )
 
         # Multi-day info
-        jid = str(row.job_id)
+        jid = str(row.job_id) if row.job_id else ""
         info = job_day_info.get(jid, {"dates": [dt_key], "total_days": 1})
         total_days = info["total_days"]
         day_number = info["dates"].index(dt_key) + 1 if dt_key in info["dates"] else 1
 
         days[dt_key]["jobs"].append({
             "id": jid,
-            "title": row.title,
-            "external_id": row.external_id,
-            "address": row.address,
-            "postal_code": row.postal_code,
+            "title": row.title or "Ukjent jobb",
+            "external_id": row.external_id or "",
+            "address": row.address or "Ukjent adresse",
+            "postal_code": row.postal_code or "",
             "status": status_val,
             "is_delayed": is_delayed,
             "technician": row.tech_name,

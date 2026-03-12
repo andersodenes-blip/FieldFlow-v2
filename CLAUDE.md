@@ -719,3 +719,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Patologisk splitting: 2t-jobb delt i 3+ deler | Fikset: kun splitt jobber > 7.5t. Sma jobber pushes hel til neste dag |
 | Feil rekkefølge pa flerdagers dag-nummer | Fikset: `_build_routes` beregner part/total fra kronologiske datoer, frontend sorterer dates-liste |
 | Railway "No start command found" | Fikset: opprettet `railway.toml` med startCommand (manglet etter v1-kopi) |
+| Ukesvisning tom men maanedsvisning har data | Fikset: week-data brukte INNER JOIN til Job/ServiceContract/Location, endret til outerjoin |
