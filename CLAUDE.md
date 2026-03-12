@@ -188,6 +188,7 @@ scripts/
   check_due_dates.py           # Sjekk forfallsdatoer
   test_route_planning_live.py  # Test planlegging alle regioner
   test_stavanger.py            # Test kun Stavanger
+  debug_multiday.py            # Debug flerdagersjobber: eksklusivitetsbrudd
 
 tests/
   conftest.py                  # Pytest fixtures (async, SQLite in-memory)
@@ -474,7 +475,8 @@ capacity_travel = travel_hours if count_travel else 0
 capacity_cost = capacity_travel + job.work_hours
 space_left = max_hours - hours_today
 if capacity_cost <= space_left:  # Hele jobben far plass
-elif work_today > 0:             # Split: jobb i dag + resten til pending_work
+elif job.work_hours <= max_hours: # Liten jobb, push HEL til neste dag (ikke splitt)
+elif work_today > 0:             # Stor jobb (>7.5t): split i dag + resten til pending_work
 else:                            # Ikke plass -> neste dag
 ```
 
@@ -646,6 +648,7 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 | `scripts/seed.py` | Seed grunndata (tenant, admin, regioner) |
 | `scripts/test_route_planning_live.py` | Test planlegging alle regioner |
 | `scripts/test_stavanger.py` | Test kun Stavanger |
+| `scripts/debug_multiday.py` | Debug flerdagersjobber: finn brudd i eksklusivitet |
 | `scripts/import_v1_master.py` | Importer jobber fra v1 Excel |
 | `scripts/import_v1_jobs.py` | Importer jobber fra v1 |
 | `scripts/import_v1_technicians.py` | Importer teknikere fra v1 |
@@ -710,3 +713,4 @@ git add -A && git commit -m "beskrivelse" && git push
 | Bergen tekniker 8-20t reisetid, kun 5 besok | Fikset: koordinater var NULL/feil i DB, test-script setter naa alle coords for planlegging |
 | Duplikatruter samme dag per tekniker | Fikset: `_build_routes` sjekker eksisterende ruter for (tech,dato), gjenbruker + test dedup |
 | Flerdagersjobb + ny jobb pa samme dag | Fikset: `multi_day_exclusive` flag blokkerer nye jobber pa ikke-siste dager |
+| Patologisk splitting: 2t-jobb delt i 3+ deler | Fikset: kun splitt jobber > 7.5t. Sma jobber pushes hel til neste dag |

@@ -411,7 +411,16 @@ class RoutePlanningService:
             day_jobs.append(job)
             return hours_today + capacity_cost, job.latitude, job.longitude, True
 
-        # Partial fit — split the job
+        # Job doesn't fit whole today.
+        # Only split genuinely large jobs (> max_hours). Small jobs that
+        # don't fit are pushed whole to the next day. This avoids
+        # pathological cascading splits where a 2h job gets split into
+        # 3+ parts, each non-final part wasting an exclusive day.
+        if job.work_hours <= max_hours:
+            pending_work.insert(0, job)
+            return hours_today, cur_lat, cur_lon, False
+
+        # Large job (> 7.5h) — partial fit, split the job
         work_today = round(space_left - capacity_travel_hours, 2)
         if work_today <= 0:
             # Not even travel fits — push to next day
