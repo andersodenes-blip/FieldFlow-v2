@@ -232,6 +232,33 @@ async def main():
         print("-" * 60)
         print(f"{'TOTALT':15s} | {total_routes:6d} | {total_visits:6d} | {total_no_coords:11d} |")
 
+        # ── RAW DB DUMP: 20 worst days ─────────────────────────────────
+        print(f"\n=== Raa DB-dump: 20 verste dager (arbeid + mellom-jobb reisetid) ===")
+        worst_days = await conn.fetch("""
+            SELECT r.route_date, t.name as tech, reg.name as region,
+                   COUNT(rv.id) as visits,
+                   SUM(COALESCE(rv.estimated_work_hours, 1.0)) as work_h,
+                   SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as inter_job_h,
+                   SUM(CASE WHEN rv.sequence_order = 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 as home_to_job_h,
+                   SUM(COALESCE(rv.estimated_drive_minutes, 0)) / 60.0 as total_drive_h
+            FROM routes r
+            JOIN technicians t ON r.technician_id = t.id
+            JOIN regions reg ON r.region_id = reg.id
+            LEFT JOIN route_visits rv ON rv.route_id = r.id
+            WHERE r.tenant_id = $1
+            GROUP BY r.route_date, t.name, reg.name
+            ORDER BY SUM(COALESCE(rv.estimated_work_hours, 1.0))
+                   + SUM(CASE WHEN rv.sequence_order > 1 THEN COALESCE(rv.estimated_drive_minutes, 0) ELSE 0 END) / 60.0 DESC
+            LIMIT 20
+        """, TENANT_ID)
+        for wd in worst_days:
+            countable = float(wd['work_h'] or 0) + float(wd['inter_job_h'] or 0)
+            flag = " *** OVER 7.5t" if countable > 7.51 else ""
+            print(f"  {wd['region']:12s} | {wd['route_date']} | {wd['tech']:25s} | "
+                  f"{wd['visits']} besok | {float(wd['work_h'] or 0):.1f}t arbeid + "
+                  f"{float(wd['inter_job_h'] or 0):.1f}t mellom = {countable:.1f}t | "
+                  f"hjem→jobb: {float(wd['home_to_job_h'] or 0):.1f}t{flag}")
+
         # ── VERIFY 7.5h LIMIT ───────────────────────────────────────────
         # Rule: work_hours + inter-job travel counts. Home→job1 does NOT count.
         # Tolerance: 7.51 to allow rounding errors
@@ -318,6 +345,58 @@ async def main():
                       f"hjem→jobb: {d['home_to_job_h']:.1f}t | jobb→hjem: {d['job_to_home_h']:.1f}t")
         else:
             print("  OK: Ingen dager overskrider 7.5t")
+
+        # ── VERIFY MULTI-DAY JOB EXCLUSIVITY ──────────────────────────
+        print(f"\n=== Verifisering: flerdagersjobb-eksklusivitet ===")
+        print(f"  Regel: ikke-siste del av flerdagersjobb = eneste jobb den dagen")
+
+        # Find routes where a multi-day non-final part shares the day with other visits
+        multi_day_violations = []
+        for rt in all_route_rows:
+            visits = visits_by_route.get(rt['route_id'], [])
+            if len(visits) <= 1:
+                continue  # Only 1 visit — can't violate
+
+            # Check scheduled_visit notes for "Del X/Y" pattern
+            visit_notes = await conn.fetch("""
+                SELECT sv.notes, rv.estimated_work_hours
+                FROM route_visits rv
+                JOIN scheduled_visits sv ON rv.scheduled_visit_id = sv.id
+                WHERE rv.route_id = $1
+                ORDER BY rv.sequence_order
+            """, rt['route_id'])
+
+            has_nonfinal_multiday = False
+            for vn in visit_notes:
+                notes = vn['notes'] or ''
+                # Pattern: "Del X/Y (Zt)" where X < Y means non-final part
+                if notes.startswith('Del '):
+                    parts = notes.split('(')[0].strip().replace('Del ', '').split('/')
+                    if len(parts) == 2:
+                        try:
+                            part_num, total = int(parts[0]), int(parts[1])
+                            if part_num < total:
+                                has_nonfinal_multiday = True
+                        except ValueError:
+                            pass
+
+            if has_nonfinal_multiday and len(visits) > 1:
+                multi_day_violations.append({
+                    'region': rt['region'], 'date': rt['route_date'],
+                    'tech': rt['tech'], 'visits': len(visits),
+                    'notes': [vn['notes'] or '-' for vn in visit_notes],
+                    'hours': [float(vn['estimated_work_hours'] or 0) for vn in visit_notes],
+                })
+
+        if multi_day_violations:
+            print(f"  FEIL: {len(multi_day_violations)} dager bryter eksklusivitetsregelen!")
+            for v in multi_day_violations[:10]:
+                job_desc = ' + '.join(
+                    f"{n} {h:.1f}t" for n, h in zip(v['notes'], v['hours'])
+                )
+                print(f"    {v['region']:12s} | {v['date']} | {v['tech']:25s} | {v['visits']} besok | {job_desc}")
+        else:
+            print("  OK: Alle flerdagersjobber har eksklusiv dag")
 
         # Remaining unscheduled per region
         print(f"\n=== Gjenstaaende uplanlagte jobber ===")

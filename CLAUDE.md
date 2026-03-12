@@ -432,6 +432,7 @@ Params: `page` (default 1), `page_size` (default 20, max 100), `sort_by`, `sort_
 - Hvis ny jobb splittes (blir flerdagers) → ingen flere jobber den dagen
 - `multi_day_exclusive` flag + post-sjekk i `_distribute_across_days` handhever dette
 - Post-sjekk: etter dag er fylt, hvis ikke-siste flerdagersdel finnes → evict andre jobber tilbake til ko
+- `_place_job` oppdaterer `total_parts` ved split: `max(job.total_parts, job.part + 1)`
 - Store jobber splittes over flere dager (f.eks. 20t → 3 dager)
 - `route_visit.estimated_work_hours` = kun tildelt del (ikke total SLA)
 - Norske helligdager og helger hoppes over (Easter-algoritme)

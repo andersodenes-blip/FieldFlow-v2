@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -234,6 +234,13 @@ async def dashboard(
         })
 
     # ── 4. Calendar data for ALL regions (single batch query) ──
+    # Only count inter-job drive (sequence_order > 1) toward capacity display
+    inter_job_drive = func.coalesce(
+        func.sum(case(
+            (RouteVisit.sequence_order > 1, RouteVisit.estimated_drive_minutes),
+            else_=0,
+        )), 0.0
+    ).label("drive_min")
     cal_result = await db.execute(
         select(
             Route.region_id,
@@ -241,7 +248,7 @@ async def dashboard(
             Technician.name.label("tech_name"),
             func.count(RouteVisit.id).label("visit_count"),
             func.coalesce(func.sum(RouteVisit.estimated_work_hours), 0.0).label("work_h"),
-            func.coalesce(func.sum(RouteVisit.estimated_drive_minutes), 0.0).label("drive_min"),
+            inter_job_drive,
         )
         .select_from(RouteVisit)
         .join(Route, RouteVisit.route_id == Route.id)
@@ -432,7 +439,10 @@ async def dashboard_week_data(
         if tech not in days[dt_key]["techs"]:
             days[dt_key]["techs"][tech] = {"work_h": 0.0, "drive_h": 0.0, "visits": 0}
         days[dt_key]["techs"][tech]["work_h"] += _round_up_half(float(row.estimated_work_hours)) if row.estimated_work_hours else 0
-        days[dt_key]["techs"][tech]["drive_h"] += (float(row.estimated_drive_minutes) / 60.0) if row.estimated_drive_minutes else 0
+        # Only count inter-job drive (sequence_order > 1) toward capacity;
+        # home→first_job drive (sequence_order == 1) is informational only
+        if row.sequence_order > 1:
+            days[dt_key]["techs"][tech]["drive_h"] += (float(row.estimated_drive_minutes) / 60.0) if row.estimated_drive_minutes else 0
         days[dt_key]["techs"][tech]["visits"] += 1
 
     return {"days": days}

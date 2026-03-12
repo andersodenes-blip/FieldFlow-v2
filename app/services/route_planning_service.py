@@ -420,11 +420,15 @@ class RoutePlanningService:
 
         leftover_hours = round(job.work_hours - work_today, 2)
 
+        # Ensure total_parts reflects the actual split (even for jobs < 7.5h
+        # that are split due to space constraints on the current day)
+        actual_total = max(job.total_parts, job.part + 1)
+
         today_part = JobWithCoords(
             job_id=job.job_id, title=job.title, address=job.address,
             latitude=job.latitude, longitude=job.longitude,
             work_hours=work_today,
-            part=job.part, total_parts=job.total_parts,
+            part=job.part, total_parts=actual_total,
             drive_minutes=int(travel_min),
         )
         day_jobs.append(today_part)
@@ -434,7 +438,7 @@ class RoutePlanningService:
                 job_id=job.job_id, title=job.title, address=job.address,
                 latitude=job.latitude, longitude=job.longitude,
                 work_hours=leftover_hours,
-                part=job.part + 1, total_parts=job.total_parts,
+                part=job.part + 1, total_parts=actual_total,
             )
             pending_work.insert(0, leftover)
 
