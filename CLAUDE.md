@@ -564,10 +564,80 @@ Komplett hovedside med ALL data samlet. Preloader alle regioner server-side for 
 - Kapasitetsvarsler (bjelle-ikon med proaktive advarsler)
 - Kryssregion-forslag (flytt jobber til nabolag-tekniker)
 - ICS kalender-eksport + e-postutsendelse
-- Global optimering (MOVE/SWAP hill-climbing)
-- Territory-rapport og belastningsanalyse
+- Global optimering (MOVE/SWAP hill-climbing) — v1 har dette i `global_improvement.py`
+- Territory-rapport og belastningsanalyse — v1 har dette i `distribution_framework.py` + `load_balance.py`
 - Bompengeestimering fra NVDB API
 - Frie dager per tekniker-visning
+- Google Directions API (trafikk-basert reisetid) — v1 har dette i `day_planner.py`
+- Primary/secondary tekniker-modus — v1 har dette i `geo_plan_stavanger.py`
+
+## V1 vs V2 Analyse (2026-03-12)
+
+**V1-kode:** `FieldFlow/` (kopi i v2-repo, IKKE del av v2-kodebasen)
+
+### V1 kjernefiler
+| Fil | Beskrivelse |
+|-----|-------------|
+| `FieldFlow/scripts/core/geo_plan_stavanger.py` | Hoveddistribusjon: nearest-neighbor, tekniker-tildeling |
+| `FieldFlow/scripts/core/day_planner.py` | Google Directions API, tidslinje-beregning, cache |
+| `FieldFlow/scripts/core/global_improvement.py` | MOVE/SWAP hill-climbing optimering (2000 iterasjoner) |
+| `FieldFlow/scripts/core/distribution_framework.py` | Tekniker-scoring, territory leakage |
+| `FieldFlow/scripts/core/load_balance.py` | Belastningsanalyse per uke/maned |
+
+### Forskjeller: Jobb-splitting over flere dager
+
+| Aspekt | V1 | V2 |
+|--------|----|----|
+| Splitting-logikk | Enkel FIFO: `min(hours_left, max_hours - daily)` | Strukturert: `part`/`total_parts` i JobWithCoords |
+| Del-tracking | Ingen `total_parts` — bare iterativ split | Eksplisitt `total_parts = max(job.total_parts, job.part + 1)` |
+| Pending work | FIFO-liste med `insert(0, ...)` | Strukturert liste med prioritering |
+
+### Forskjeller: 7.5t-grense
+
+| Aspekt | V1 | V2 |
+|--------|----|----|
+| Hjem→forste jobb | TELLER mot 7.5t (bug?) | Teller IKKE (`count_travel=False`) |
+| Mellom jobber | Teller mot 7.5t | Teller mot 7.5t |
+| Siste jobb→hjem | Teller IKKE | Teller IKKE |
+| Inkonsistens | Planning vs analyse bruker ulike regler | Konsistent overalt |
+
+**Konsekvens:** V2 har ~5-10% mer kapasitet per dag fordi hjem-reisetid ikke trekkes fra.
+
+### Forskjeller: Flerdagersjobb-eksklusivitet
+
+| Aspekt | V1 | V2 |
+|--------|----|----|
+| Eksklusivitet | **FINNES IKKE** — v1 har denne buggen | ✓ Implementert med `multi_day_exclusive` flag + post-check |
+| Eviction | Ingen | Evict andre jobber tilbake til ko hvis ikke-siste del funnet |
+
+### Forskjeller: Reisetid-beregning
+
+| Aspekt | V1 | V2 |
+|--------|----|----|
+| Metode | Google Directions API (trafikk-basert) + haversine fallback | Kun haversine + correction factor |
+| Noaktighet | Hoy (ekte kjoreavstand + trafikk) | Moderat (30 km/t * korreksjonsfaktor) |
+| Cache | Disk-basert JSON-cache | Ingen cache |
+| Parkering | 5-10 min (variabelt) | 10 min fast |
+
+### Hva v1 har som v2 mangler (prioritert)
+
+**Prioritet 1 — Kritisk for produksjonsparitet:**
+1. **Global MOVE/SWAP optimering** (`global_improvement.py`): Greedy hill-climbing med 2000 iterasjoner. Flytter/bytter jobber mellom teknikere for a minimere total km + jevn fordeling. Sjekker kapasitet for hvert trekk.
+2. **Google Directions API** (`day_planner.py`): Trafikk-basert reisetid med Routes API v2. Cache for a unnga gjentatte kall. Kritisk for noaktig kapasitetsplanlegging i byomrader.
+3. **Territory leakage-analyse** (`distribution_framework.py`): Identifiserer jobber tildelt feil tekniker basert pa geo-naerhet. Read-only rapport.
+
+**Prioritet 2 — Nyttig for avansert planlegging:**
+4. **Primary/secondary tekniker-modus** (`geo_plan_stavanger.py`): Hardkoder en tekniker som far alle jobber; overskudd gar til sekundaer. Brukes i Stavanger/Bergen.
+5. **Belastningsanalyse** (`load_balance.py`): Per-uke/maned kapasitetsrapport per tekniker.
+6. **Deterministisk seed** for reproduserbare planer.
+
+### Hva v2 gjor BEDRE enn v1
+
+1. **Korrekt flerdagersjobb-eksklusivitet** — v1 har denne buggen
+2. **Konsistent 7.5t-beregning** — v1 har inkonsistens mellom planning og analyse
+3. **Type-sikker arkitektur** — dataklasser, UUID, async
+4. **Database-basert** — normaliserte tabeller, RLS-klar, audit trail
+5. **Multi-tenant** — v1 er single-tenant med Excel-filer
 
 ## Nyttige scripts
 
